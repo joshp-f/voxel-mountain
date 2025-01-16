@@ -90,8 +90,8 @@
 
     // Our built-in 'ground' shape.
     // var ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
-    const chunkSize = 32;
-    const renderDist = 32;
+    const chunkSize = 64;
+    const renderDist = 64;
     for (let i = -renderDist; i <= renderDist; i++) {
         for (let j = -renderDist; j <= renderDist; j++) {
             dist = Math.abs(i)+Math.abs(j);
