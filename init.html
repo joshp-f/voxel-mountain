@@ -64,7 +64,7 @@
         var sceneToRender = null;
         var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
         var createScene = function () {
-    const chunkSize = 64;
+    const chunkSize = 128;
     const renderDist = 128;
     const maxDist = chunkSize*renderDist*2;
     const mountHeight = maxDist/4;
@@ -78,7 +78,8 @@
     // scene.fogColor = new BABYLON.Color3(0.9, 0.9, 0.85);
 
     // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,-maxDist/8), scene);
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,-maxDist/32), scene);
+    camera.maxZ = 50000;
 
     // This targets the camera to scene origin
     camera.setTarget(BABYLON.Vector3.Zero());
@@ -141,12 +142,14 @@
         const meshCode = `${boxSize}-${colorCode}`;
         if (!(meshCode in meshTypeMap)) {
             const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {size:boxSize,faceColors:colorCodeMap[colorCode]}, scene);
-            newMesh.isVisible = false;
-            newMesh.setParent(null);
+            newMesh.alwaysSelectAsActiveMesh = true;
+            // newMesh.isVisible = false;
+            // newMesh.setParent(null);
             meshTypeMap[meshCode] = newMesh;
         }
         const mesh = meshTypeMap[meshCode];
         const instance = mesh.createInstance(meshCode+boxcount);
+        instance.alwaysSelectAsActiveMesh = true;
         return instance;
     }
     var boxration = 1;
@@ -154,7 +157,7 @@
         for (let j = -renderDist; j <= renderDist; j++) {
             dist = Math.sqrt(i**2+j**2);
             // 122333344444444
-            const tierMap = [1,2,3,4,5];
+            const tierMap = [1,2,2,3,3,3,4,4,4,4,5,5,5,5,5,6,6,6,6,6,6];
             const tier = tierMap[Math.ceil(dist)] ??  Math.ceil(dist+1);
             const boxSize =Math.min(2**(tier),chunkSize);
             const boxesPerChunk = chunkSize/boxSize;
@@ -189,6 +192,11 @@
             // }
         }
     }
+    scene.freezeActiveMeshes();
+    // setTimeout(() => {
+    //     scene.freezeActiveMeshes();
+        
+    // }, 100000);
     console.log(boxcount);
     return scene;
 };
