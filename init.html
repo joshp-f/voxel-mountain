@@ -67,8 +67,12 @@
     // This creates a basic Babylon Scene object (non-mesh)
     var scene = new BABYLON.Scene(engine);
 
+    const chunkSize = 64;
+    const renderDist = 32;
+    const maxDist = chunkSize*renderDist*2;
+    const mountHeight = maxDist/4;
     // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,-maxDist/2), scene);
 
     // This targets the camera to scene origin
     camera.setTarget(BABYLON.Vector3.Zero());
@@ -80,7 +84,9 @@
     var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
 
     // Default intensity is 1. Let's dim the light a small amount
-    light.intensity = 0.7;
+    light.intensity = 0.9;
+    light.specular = BABYLON.Color3.Black();
+
 
     // Our built-in 'sphere' shape.
     // var sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 2, segments: 32}, scene);
@@ -93,25 +99,62 @@
     function getBaseLog(x, y) {
         return Math.log(y) / Math.log(x);
     }
-    const chunkSize = 64;
-    const renderDist = 64;
+    const BlockColor = [
+        new BABYLON.Color4(0.9,0.8,0.1,1),
+        new BABYLON.Color4(0.9,1,0,1),
+        new BABYLON.Color4(1,0.8,0,1),
+        new BABYLON.Color4(0.8,0.9,0,1),
+        new BABYLON.Color4(0.1,9,0.1,1),
+        new BABYLON.Color4(0,1,1,1),
+    ];
+    const BlockColor2 = [
+        new BABYLON.Color4(0.8,0.7,0,1),
+        new BABYLON.Color4(0.8,0.9,0,1),
+        new BABYLON.Color4(0.9,0.7,0,1),
+        new BABYLON.Color4(0.7,0.8,0,1),
+        new BABYLON.Color4(0.1,0.8,0.1,1),
+        new BABYLON.Color4(0,0.9,0.9,1),
+    ];
+    const LeafColor = [
+        new BABYLON.Color4(0.4,0.5,0,1),
+        new BABYLON.Color4(0.4,0.7,0,1),
+        new BABYLON.Color4(0.5,0.5,0,1),
+        new BABYLON.Color4(0.3,0.6,0,1),
+        new BABYLON.Color4(0.0,0.6,0.1,1),
+        new BABYLON.Color4(0,0.7,0.4,1),
+    ];
+    let boxcount = 0;
     for (let i = -renderDist; i <= renderDist; i++) {
         for (let j = -renderDist; j <= renderDist; j++) {
             dist = Math.sqrt(i**2+j**2);
             // 122333344444444
-            const tier = Math.ceil(dist+1);
+            const tierMap = [1,2,3,4,5];
+            const tier = tierMap[Math.ceil(dist)] ??  Math.ceil(dist+1);
             const boxSize =Math.min(2**(tier),chunkSize);
             const boxesPerChunk = chunkSize/boxSize;
-            console.log(tier,boxSize,boxesPerChunk)
-            for (let k = 0; k < boxesPerChunk; k++) {
-                for (let l = 0; l < boxesPerChunk; l++) {
-                    var ground2 = BABYLON.MeshBuilder.CreateGround("ground", {width: 0.5*boxSize, height: 0.5*boxSize}, scene);
-                    ground2.position.x = i*chunkSize+k*boxSize;
-                    ground2.position.z = j*chunkSize+l*boxSize;
+            for (let k = -boxesPerChunk/2; k < boxesPerChunk/2; k++) {
+                for (let l = -boxesPerChunk/2; l < boxesPerChunk/2; l++) {
+                    boxcount += 2;
+                    // var ground2 = BABYLON.MeshBuilder.CreateGround("ground", {width: 0.5*boxSize, height: 0.5*boxSize}, scene);
+                    var boxration = 1;
+                    const color = Math.random() > 0.5 ? BlockColor2 : BlockColor;
+                    var ground2 = BABYLON.MeshBuilder.CreateBox("box", {width: boxration*boxSize, height: boxration*boxSize,depth:boxration*boxSize,faceColors:color}, scene);
+                    const x = i*chunkSize+k*boxSize;
+                    const z = j*chunkSize+l*boxSize;
+                    const blockDist = Math.sqrt(x**2+z**2);
+                    const y = 2**(-blockDist/mountHeight)*mountHeight;
+                    ground2.position.x = x;
+                    ground2.position.z = z;
+                    ground2.position.y = y;
+                    var grass = BABYLON.MeshBuilder.CreateBox("box", {width: 1, height: 1,depth:1,faceColors:LeafColor}, scene);
+                    grass.x = x;
+                    grass.z = z;
+                    grass.y = y + 100;
                 }
             }
         }
     }
+    console.log(boxcount);
     return scene;
 };
     window.initFunction = async function() {
