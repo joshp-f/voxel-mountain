@@ -72,7 +72,7 @@
     const maxDist = chunkSize*renderDist*2;
     const mountHeight = maxDist/4;
     // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,-maxDist/2), scene);
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,-maxDist/8), scene);
 
     // This targets the camera to scene origin
     camera.setTarget(BABYLON.Vector3.Zero());
@@ -134,26 +134,30 @@
             const boxesPerChunk = chunkSize/boxSize;
             for (let k = -boxesPerChunk/2; k < boxesPerChunk/2; k++) {
                 for (let l = -boxesPerChunk/2; l < boxesPerChunk/2; l++) {
-                    boxcount += 2;
                     // var ground2 = BABYLON.MeshBuilder.CreateGround("ground", {width: 0.5*boxSize, height: 0.5*boxSize}, scene);
                     var boxration = 1;
                     const color = Math.random() > 0.5 ? BlockColor2 : BlockColor;
-                    var ground2 = BABYLON.MeshBuilder.CreateBox("box", {width: boxration*boxSize, height: boxration*boxSize,depth:boxration*boxSize,faceColors:color}, scene);
                     const x = i*chunkSize+k*boxSize;
                     const z = j*chunkSize+l*boxSize;
                     const blockDist = Math.sqrt(x**2+z**2);
                     const y = 2**(-blockDist/mountHeight)*mountHeight;
+                    boxcount++;
+                    var ground2 = BABYLON.MeshBuilder.CreateBox("box", {width: boxration*boxSize, height: boxration*boxSize,depth:boxration*boxSize,faceColors:color}, scene);
                     ground2.position.x = x;
                     ground2.position.z = z;
                     ground2.position.y = y;
+                    ground2.alwaysSelectAsActiveMesh = true;
+                    boxcount++;
                     var grass = BABYLON.MeshBuilder.CreateBox("box", {width: 1, height: 1,depth:1,faceColors:LeafColor}, scene);
-                    grass.x = x;
-                    grass.z = z;
-                    grass.y = y + 100;
+                    grass.position.x = x;
+                    grass.position.z = z;
+                    grass.position.y = y+boxSize;
+                    grass.alwaysSelectAsActiveMesh = true;
                 }
             }
         }
     }
+    scene.freezeActiveMeshes();
     console.log(boxcount);
     return scene;
 };
