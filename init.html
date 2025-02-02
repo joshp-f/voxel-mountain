@@ -124,6 +124,26 @@
         new BABYLON.Color4(0,0.7,0.4,1),
     ];
     let boxcount = 0;
+    colorCodeMap = {
+        'c1':BlockColor,
+        'c2':BlockColor2,
+        'leaf':LeafColor
+    }
+    const meshTypeMap = {}
+    function GetInstance({colorCode,boxSize}){
+        boxcount++;
+        const meshCode = `${boxSize}-${colorCode}`;
+        if (!(meshCode in meshTypeMap)) {
+            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {size:boxSize,faceColors:colorCodeMap[colorCode]}, scene);
+            newMesh.isVisible = false;
+            newMesh.setParent(null);
+            meshTypeMap[meshCode] = newMesh;
+        }
+        const mesh = meshTypeMap[meshCode];
+        const instance = mesh.createInstance(meshCode+boxcount);
+        return instance;
+    }
+    var boxration = 1;
     for (let i = -renderDist; i <= renderDist; i++) {
         for (let j = -renderDist; j <= renderDist; j++) {
             dist = Math.sqrt(i**2+j**2);
@@ -132,32 +152,37 @@
             const tier = tierMap[Math.ceil(dist)] ??  Math.ceil(dist+1);
             const boxSize =Math.min(2**(tier),chunkSize);
             const boxesPerChunk = chunkSize/boxSize;
+            const chunkPos = {x:i*chunkSize,z:j*chunkSize};
+            chunkPos.y = Math.sqrt(chunkPos.x**2+chunkPos.z**2);
             for (let k = -boxesPerChunk/2; k < boxesPerChunk/2; k++) {
                 for (let l = -boxesPerChunk/2; l < boxesPerChunk/2; l++) {
-                    // var ground2 = BABYLON.MeshBuilder.CreateGround("ground", {width: 0.5*boxSize, height: 0.5*boxSize}, scene);
-                    var boxration = 1;
-                    const color = Math.random() > 0.5 ? BlockColor2 : BlockColor;
-                    const x = i*chunkSize+k*boxSize;
-                    const z = j*chunkSize+l*boxSize;
+                    const colorCode = Math.random() > 0.5 ? 'c1' : 'c2';
+                    const x = chunkPos.x+k*boxSize;
+                    const z = chunkPos.z+l*boxSize;
                     const blockDist = Math.sqrt(x**2+z**2);
-                    const y = 2**(-blockDist/mountHeight)*mountHeight;
-                    boxcount++;
-                    var ground2 = BABYLON.MeshBuilder.CreateBox("box", {width: boxration*boxSize, height: boxration*boxSize,depth:boxration*boxSize,faceColors:color}, scene);
-                    ground2.position.x = x;
-                    ground2.position.z = z;
-                    ground2.position.y = y;
-                    ground2.alwaysSelectAsActiveMesh = true;
-                    boxcount++;
-                    var grass = BABYLON.MeshBuilder.CreateBox("box", {width: 1, height: 1,depth:1,faceColors:LeafColor}, scene);
-                    grass.position.x = x;
-                    grass.position.z = z;
-                    grass.position.y = y+boxSize;
-                    grass.alwaysSelectAsActiveMesh = true;
+                    const y = (2**(-blockDist/mountHeight)*mountHeight);
+
+                    const instance = GetInstance({colorCode,boxSize});
+                    instance.position.x = x;
+                    instance.position.z = z;
+                    instance.position.y = y;
+                }
+            }
+            const hasClump = Math.random() < 0.5;
+            const clumpSize = Math.random()*10;
+            if (hasClump) {
+                for (let i = 0; i < Math.random()*clumpSize; i++) {
+                    const leaf = GetInstance({colorCode:'leaf',boxSize:1});
+                    const x = chunkPos.x+Math.random()*10
+                    const z = chunkPos.z+Math.random()*10;
+                    const y = chunkPos.y + 100;
+                    leaf.position.x = x;
+                    leaf.position.z = z;
+                    leaf.position.y = y+boxSize;
                 }
             }
         }
     }
-    scene.freezeActiveMeshes();
     console.log(boxcount);
     return scene;
 };
