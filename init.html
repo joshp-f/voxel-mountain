@@ -64,13 +64,19 @@
         var sceneToRender = null;
         var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
         var createScene = function () {
-    // This creates a basic Babylon Scene object (non-mesh)
-    var scene = new BABYLON.Scene(engine);
-
     const chunkSize = 64;
-    const renderDist = 32;
+    const renderDist = 128;
     const maxDist = chunkSize*renderDist*2;
     const mountHeight = maxDist/4;
+    // This creates a basic Babylon Scene object (non-mesh)
+    var scene = new BABYLON.Scene(engine);
+    // scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+    // scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+    // scene.fogDensity = 0.0005;
+    // scene.fogStart = 0;
+    // scene.fogEnd = maxDist/2;
+    // scene.fogColor = new BABYLON.Color3(0.9, 0.9, 0.85);
+
     // This creates and positions a free camera (non-mesh)
     var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,-maxDist/8), scene);
 
@@ -168,19 +174,19 @@
                     instance.position.y = y;
                 }
             }
-            const hasClump = Math.random() < 0.5;
-            const clumpSize = Math.random()*10;
-            if (hasClump) {
-                for (let i = 0; i < Math.random()*clumpSize; i++) {
-                    const leaf = GetInstance({colorCode:'leaf',boxSize:1});
-                    const x = chunkPos.x+Math.random()*10
-                    const z = chunkPos.z+Math.random()*10;
-                    const y = chunkPos.y + 100;
-                    leaf.position.x = x;
-                    leaf.position.z = z;
-                    leaf.position.y = y+boxSize;
-                }
-            }
+            // const hasClump = Math.random() < 0.5;
+            // const clumpSize = Math.random()*10;
+            // if (hasClump) {
+            //     for (let i = 0; i < Math.random()*clumpSize; i++) {
+            //         const leaf = GetInstance({colorCode:'leaf',boxSize:1});
+            //         const x = chunkPos.x+Math.random()*10
+            //         const z = chunkPos.z+Math.random()*10;
+            //         const y = chunkPos.y + 100;
+            //         leaf.position.x = x;
+            //         leaf.position.z = z;
+            //         leaf.position.y = y+boxSize;
+            //     }
+            // }
         }
     }
     console.log(boxcount);
