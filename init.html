@@ -78,7 +78,7 @@
     // scene.fogColor = new BABYLON.Color3(0.9, 0.9, 0.85);
 
     // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,-maxDist/32), scene);
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,10), scene);
     camera.maxZ = 50000;
 
     // This targets the camera to scene origin
@@ -123,11 +123,11 @@
         new BABYLON.Color4(0,0.9,0.9,1),
     ];
     const LeafColor = [
-        new BABYLON.Color4(0.4,0.5,0,1),
-        new BABYLON.Color4(0.4,0.7,0,1),
-        new BABYLON.Color4(0.5,0.5,0,1),
-        new BABYLON.Color4(0.3,0.6,0,1),
-        new BABYLON.Color4(0.0,0.6,0.1,1),
+        new BABYLON.Color4(0.2,0.3,0,1),
+        new BABYLON.Color4(0.2,0.5,0,1),
+        new BABYLON.Color4(0.2,0.3,0,1),
+        new BABYLON.Color4(0.2,0.4,0,1),
+        new BABYLON.Color4(0.0,0.4,0.1,1),
         new BABYLON.Color4(0,0.7,0.4,1),
     ];
     let boxcount = 0;
@@ -162,7 +162,8 @@
             const boxSize =Math.min(2**(tier),chunkSize);
             const boxesPerChunk = chunkSize/boxSize;
             const chunkPos = {x:i*chunkSize,z:j*chunkSize};
-            chunkPos.y = Math.sqrt(chunkPos.x**2+chunkPos.z**2);
+            const chunkDist = Math.sqrt(chunkPos.x**2+chunkPos.z**2);
+            chunkPos.y = (2**(-chunkDist/mountHeight)*mountHeight);
             for (let k = -boxesPerChunk/2; k < boxesPerChunk/2; k++) {
                 for (let l = -boxesPerChunk/2; l < boxesPerChunk/2; l++) {
                     const colorCode = Math.random() > 0.5 ? 'c1' : 'c2';
@@ -178,18 +179,19 @@
                 }
             }
             // const hasClump = Math.random() < 0.5;
+            const hasClump = i == j || i == -j;
             // const clumpSize = Math.random()*10;
-            // if (hasClump) {
-            //     for (let i = 0; i < Math.random()*clumpSize; i++) {
-            //         const leaf = GetInstance({colorCode:'leaf',boxSize:1});
-            //         const x = chunkPos.x+Math.random()*10
-            //         const z = chunkPos.z+Math.random()*10;
-            //         const y = chunkPos.y + 100;
-            //         leaf.position.x = x;
-            //         leaf.position.z = z;
-            //         leaf.position.y = y+boxSize;
-            //     }
-            // }
+            if (hasClump) {
+                for (let i = 0; i < 10; i++) {
+                    const leaf = GetInstance({colorCode:'leaf',boxSize:1});
+                    const x = chunkPos.x+Math.random()*10
+                    const z = chunkPos.z+Math.random()*10;
+                    const y = chunkPos.y + 150;
+                    leaf.position.x = x;
+                    leaf.position.z = z;
+                    leaf.position.y = y;
+                }
+            }
         }
     }
     scene.freezeActiveMeshes();
