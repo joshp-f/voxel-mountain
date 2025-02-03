@@ -50,8 +50,11 @@
     <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
     <script>
 
+function Sigmoid(x) {
+    return 1 / (1 + Math.exp(-x));
+}
 
- function DistanceToLine(p, s, e) {
+function DistanceToLine(p, s, e) {
     // Calculate line length squared
     const lineLength2 = (e.x - s.x) * (e.x - s.x) + (e.z - s.z) * (e.z - s.z);
     
@@ -245,7 +248,7 @@ var createScene = function () {
     function GetElevation(pos) {
         const distToRange = DistanceToLine(pos,mtnRange[0],mtnRange[1]);
         // const dist = Math.min(...mountains.map(mtn => Math.sqrt((pos.x-mtn.x)**2+(pos.z-mtn.z)**2)));
-        const baseDepth = (2**(-distToRange/mountHeight)*mountHeight);
+        let baseDepth = Sigmoid((-distToRange+mountHeight/2)/mountHeight)*mountHeight;
         const distToGlacier = Math.min(...glacialPaths.map(path => DistanceToLine(pos,path[0],path[1])));
         glacialDepression = Math.max(mountHeight/2-(distToGlacier/(mountHeight/4))**2*mountHeight,0);
         return Math.max(baseDepth-glacialDepression,0);
