@@ -47,27 +47,54 @@
         </style>
     </head>
     <body>
-        <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
-        <script>
-                    var canvas = document.getElementById("renderCanvas");
+    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+    <script>
 
-                    var startRenderLoop = function (engine, canvas) {
-                        engine.runRenderLoop(function () {
-                            if (sceneToRender && sceneToRender.activeCamera) {
-                                sceneToRender.render();
-                            }
-                        });
-                    }
 
-                    var engine = null;
-        var scene = null;
-        var sceneToRender = null;
-        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
-        var createScene = function () {
+ function DistanceToLine(p, s, e) {
+    // Calculate line length squared
+    const lineLength2 = (e.x - s.x) * (e.x - s.x) + (e.z - s.z) * (e.z - s.z);
+    
+    if (lineLength2 === 0) {
+        // If line is actually a point, return distance to that point
+        return Math.sqrt((p.x - s.x) * (p.x - s.x) + (p.z - s.z) * (p.z - s.z));
+    }
+    
+    // Calculate projection position (t) along line segment
+    const t = Math.max(0, Math.min(1, (
+        ((p.x - s.x) * (e.x - s.x) + (p.z - s.z) * (e.z - s.z)) / lineLength2
+    )));
+    
+    // Calculate closest point on line
+    const projectionX = s.x + t * (e.x - s.x);
+    const projectionY = s.z + t * (e.z - s.z);
+    
+    // Return distance to closest point
+    return Math.sqrt(
+        (p.x - projectionX) * (p.x - projectionX) + 
+        (p.z - projectionY) * (p.z - projectionY)
+    );
+}
+
+var canvas = document.getElementById("renderCanvas");
+
+var startRenderLoop = function (engine, canvas) {
+    engine.runRenderLoop(function () {
+        if (sceneToRender && sceneToRender.activeCamera) {
+            sceneToRender.render();
+        }
+    });
+}
+
+var engine = null;
+var scene = null;
+var sceneToRender = null;
+var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+var createScene = function () {
     const chunkSize = 128;
     const renderDist = 128;
     const maxDist = chunkSize*renderDist*2;
-    const mountHeight = maxDist/32;
+    const mountHeight = maxDist/16;
     console.log('mountHeight',mountHeight,'maxDist',maxDist);
     // This creates a basic Babylon Scene object (non-mesh)
     var scene = new BABYLON.Scene(engine);
@@ -80,9 +107,10 @@
     // scene.fogColor = new BABYLON.Color3(0.9, 0.9, 0.85);
 
     // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, mountHeight+2,10), scene);
+    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, mountHeight+2,10), scene);
     camera.maxZ = 50000;
     camera.speed = 10;
+    camera.inverseRotationSpeed = 100;
 
     // This targets the camera to scene origin
     // camera.setTarget(BABYLON.Vector3.Zero());
@@ -162,6 +190,8 @@
         if (!(meshCode in meshTypeMap)) {
             const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {size,width,height,depth,faceColors:colorCodeMap[colorCode]}, scene);
             newMesh.alwaysSelectAsActiveMesh = true;
+            newMesh.position.y = -1000;
+            // this is really slow :(
             // newMesh.isVisible = false;
             // newMesh.setParent(null);
             if (colorCode === 'cloud') newMesh.hasVertexAlpha = true
@@ -173,17 +203,35 @@
         return instance;
     }
     var boxration = 1;
-    const mountains = [
-        {x:0,z:0},
-        {x:maxDist/4,z:maxDist/4},
-        {x:maxDist/4,z:maxDist/5},
-        {x:maxDist/3.5,z:maxDist/5},
-        {x:-maxDist/8,z:maxDist/8},
-    ];
-    const snowStart = 0.6;
+    // const mountains = [
+    //     {x:0,z:0},
+    //     {x:maxDist/4,z:maxDist/4},
+    //     {x:maxDist/4,z:maxDist/5},
+    //     {x:maxDist/3.5,z:maxDist/5},
+    //     {x:-maxDist/8,z:maxDist/8},
+    // ];
+    const mtnRange = [
+        {x:-maxDist/4,z:0},
+        {x:maxDist/4,z:0},
+    ]
+    const glacialPaths = [
+        [
+            {x:0,z:mountHeight/8},
+            {x:0,z:maxDist/4},
+        ],
+        [
+            {x:mountHeight/2,z:mountHeight/8},
+            {x:mountHeight/2,z:maxDist/4},
+        ],
+    ]
+    const snowStart = 0.9;
     function GetElevation(pos) {
-        const dist = Math.min(...mountains.map(mtn => Math.sqrt((pos.x-mtn.x)**2+(pos.z-mtn.z)**2)));
-        return (4**(-dist/mountHeight)*mountHeight);
+        const distToRange = DistanceToLine(pos,mtnRange[0],mtnRange[1]);
+        // const dist = Math.min(...mountains.map(mtn => Math.sqrt((pos.x-mtn.x)**2+(pos.z-mtn.z)**2)));
+        const baseDepth = (2**(-distToRange/mountHeight)*mountHeight);
+        const distToGlacier = Math.min(...glacialPaths.map(path => DistanceToLine(pos,path[0],path[1])));
+        glacialDepression = Math.max(mountHeight/2-(distToGlacier/(mountHeight/4))**2*mountHeight,0);
+        return Math.max(baseDepth-glacialDepression,0);
     }
     for (let i = -renderDist; i <= renderDist; i++) {
         for (let j = -renderDist; j <= renderDist; j++) {
@@ -202,7 +250,7 @@
                     const z = chunkPos.z+l*boxSize;
                     const y = GetElevation({x,z})
                     
-                    if ((((y/mountHeight)-snowStart)*1.1/(1-snowStart)) > Math.random()) colorCode = 'snow';
+                    // if ((((y/mountHeight)-snowStart)*1/(1-snowStart)) > Math.random()) colorCode = 'snow';
 
                     const instance = GetInstance({colorCode,size:boxSize});
                     instance.position.x = x;

@@ -1,0 +1,30 @@
+geography research
+https://en-au.topographic-map.com/map-cfz33q/Mount-T%C5%ABtoko/?center=-44.60362%2C168.02147&zoom=11&popup=-44.61286%2C168.0304
+https://www.youtube.com/watch?v=5H9JRxUvGWE
+
+mountains like the andes, eroded by glaciers and extension (faults from zealandia continent separation lets it fall)
+
+majority of mountains is in giant root, extending into crust
+
+glaciers carve out valleys
+
+water cuts v shaped valleys
+
+ice cuts wider deep u shaped valleys
+
+flow direction is based on 'land' angle, not the mountain angle
+
+https://www.youtube.com/watch?v=QUaRuMMIiKk
+
+
+
+correct way to draw - elevated, then 'u shapes cut in in angle of land
+
+mountain range (linear on both sides), with vectors, which reduce depth based on nearest point to the vector
+
+
+1. mountain range (base elevation)
+
+2. fixed interval vectors (parallel to ranges)
+3. find closest vector
+4 based on dist, reduce elevation
