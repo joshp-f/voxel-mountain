@@ -162,12 +162,14 @@
         return instance;
     }
     var boxration = 1;
-    const mtn2 = {x:maxDist/4,z:maxDist/4};
+    const mountains = [
+        {x:0,z:0},
+        {x:maxDist/4,z:maxDist/4},
+        {x:-maxDist/8,z:maxDist/8},
+    ];
     const snowStart = 0.8;
-    console.log(mtn2);
-    const mtn1 = {x:0,y:0}
     function GetElevation(pos) {
-        const dist = Math.min(Math.sqrt(pos.x**2+pos.z**2),(Math.sqrt((pos.x-mtn2.x)**2+(pos.z-mtn2.z)**2)));
+        const dist = Math.min(...mountains.map(mtn => Math.sqrt((pos.x-mtn.x)**2+(pos.z-mtn.z)**2)));
         return (4**(-dist/mountHeight)*mountHeight);
     }
     for (let i = -renderDist; i <= renderDist; i++) {
@@ -187,7 +189,7 @@
                     const z = chunkPos.z+l*boxSize;
                     const y = GetElevation({x,z})
                     
-                    if ((((y/mountHeight)-snowStart)*1/(1-snowStart)) > Math.random()) colorCode = 'snow';
+                    if ((((y/mountHeight)-snowStart)*1.1/(1-snowStart)) > Math.random()) colorCode = 'snow';
 
                     const instance = GetInstance({colorCode,boxSize});
                     instance.position.x = x;
