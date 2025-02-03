@@ -110,7 +110,7 @@ var createScene = function () {
     // scene.fogColor = new BABYLON.Color3(0.9, 0.9, 0.85);
 
     // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, mountHeight+2,10), scene);
+    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, mountHeight+2,3000), scene);
     camera.maxZ = 50000;
     camera.speed = 10;
     camera.inverseRotationSpeed = 100;
@@ -226,31 +226,39 @@ var createScene = function () {
         {x:-maxDist/4,z:-mountHeight},
         {x:maxDist/4,z:mountHeight},
     ]
-    const glacialPaths = [
-        [
-            {x:0,z:mountHeight/8},
-            {x:0,z:maxDist/4},
-        ],
-        [
-            {x:-mountHeight/2,z:mountHeight/8},
-            {x:mountHeight/2,z:maxDist/4},
-        ],
-        [
-            {x:mountHeight/2,z:mountHeight/8},
-            {x:-mountHeight/2,z:maxDist/4},
-        ],
-        [
-            {x:mountHeight/2,z:-mountHeight/8},
-            {x:mountHeight,z:-maxDist/4},
-        ],
-    ]
+    let glacialPaths = [];
+    for (let i = -5; i < 5; i++) {
+        const angle = (Math.random()-0.5)*maxDist/8
+        glacialPaths.push([
+            {x:i*mountHeight-angle,z:mountHeight/8},
+            {x:i*mountHeight+angle,z:maxDist/4}
+        ])
+    }
+    // const glacialPaths = [
+    //     [
+    //         {x:0,z:mountHeight/8},
+    //         {x:0,z:maxDist/4},
+    //     ],
+    //     [
+    //         {x:-mountHeight/2,z:mountHeight/8},
+    //         {x:mountHeight/2,z:maxDist/4},
+    //     ],
+    //     [
+    //         {x:mountHeight/2,z:mountHeight/8},
+    //         {x:-mountHeight/2,z:maxDist/4},
+    //     ],
+    //     [
+    //         {x:mountHeight/2,z:-mountHeight/8},
+    //         {x:mountHeight,z:-maxDist/4},
+    //     ],
+    // ]
     const snowStart = 0.9;
     function GetElevation(pos) {
         const distToRange = DistanceToLine(pos,mtnRange[0],mtnRange[1]);
         // const dist = Math.min(...mountains.map(mtn => Math.sqrt((pos.x-mtn.x)**2+(pos.z-mtn.z)**2)));
-        let baseDepth = Sigmoid((-distToRange+mountHeight/2)/mountHeight)*mountHeight;
+        let baseDepth = Sigmoid((-distToRange+mountHeight*2)/(mountHeight/2))*mountHeight;
         const distToGlacier = Math.min(...glacialPaths.map(path => DistanceToLine(pos,path[0],path[1])));
-        glacialDepression = Math.max(mountHeight/2-(distToGlacier/(mountHeight/4))**2*mountHeight,0);
+        let glacialDepression = Sigmoid((-distToGlacier+mountHeight/4)/(mountHeight/16))*mountHeight/2;
         return Math.max(baseDepth-glacialDepression,0);
     }
     for (let i = -renderDist; i <= renderDist; i++) {
@@ -276,14 +284,15 @@ var createScene = function () {
                 }
             }
             // const hasClump = Math.random() < 0.5;
-            const hasClump = i == j || i == -j;
+            const hasClump = Math.random() > 0.9;
             // const clumpSize = Math.random()*10;
             if (hasClump) {
-                for (let i = 0; i < 20; i++) {
-                    const x = chunkPos.x+Math.random()*20
-                    const z = chunkPos.z+Math.random()*20;
-                    const y = chunkPos.y + 150;
-                    const leaf = GetInstance({colorCode:'leaf',size:1,x,y,z});
+                for (let i = 0; i < 10; i++) {
+                    const x = chunkPos.x-chunkSize/2+chunkSize*Math.random();
+                    const z = chunkPos.z-chunkSize/2+chunkSize*Math.random();
+                    const y = chunkPos.y + 20;
+                    const leaf = GetInstance({colorCode:'leaf',depth:1,width:1,height:10,x,y,z});
+                    const bush = GetInstance({colorCode:'leaf',depth:3,width:3,height:3,x,y:y+6,z});
                 }
             }
 
