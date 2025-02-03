@@ -228,10 +228,11 @@ var createScene = function () {
     ]
     let glacialPaths = [];
     for (let i = -5; i < 5; i++) {
-        const angle = (Math.random()-0.5)*maxDist/8
+        const angle = (Math.random()-0.5)*maxDist/8;
+        const mtnCut = (Math.random()-0.5)*mountHeight/2;
         glacialPaths.push([
-            {x:i*mountHeight-angle,z:mountHeight/8},
-            {x:i*mountHeight+angle,z:maxDist/4}
+            {x:i*mountHeight/2-angle,z:mtnCut},
+            {x:i*mountHeight/2+angle,z:maxDist/4}
         ])
     }
     // const glacialPaths = [
