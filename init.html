@@ -220,8 +220,8 @@ var createScene = function () {
     //     {x:-maxDist/8,z:maxDist/8},
     // ];
     const mtnRange = [
-        {x:-maxDist/4,z:0},
-        {x:maxDist/4,z:0},
+        {x:-maxDist/4,z:-mountHeight},
+        {x:maxDist/4,z:mountHeight},
     ]
     const glacialPaths = [
         [
@@ -229,8 +229,16 @@ var createScene = function () {
             {x:0,z:maxDist/4},
         ],
         [
-            {x:mountHeight/2,z:mountHeight/8},
+            {x:-mountHeight/2,z:mountHeight/8},
             {x:mountHeight/2,z:maxDist/4},
+        ],
+        [
+            {x:mountHeight/2,z:mountHeight/8},
+            {x:-mountHeight/2,z:maxDist/4},
+        ],
+        [
+            {x:mountHeight/2,z:-mountHeight/8},
+            {x:mountHeight,z:-maxDist/4},
         ],
     ]
     const snowStart = 0.9;
