@@ -163,11 +163,11 @@ var createScene = function () {
         new BABYLON.Color4(0,0.7,0.4,1),
     ];
     const snowColor = [
-        new BABYLON.Color4(1,0.9,1,1),
-        new BABYLON.Color4(0.9,0.9,1,1),
-        new BABYLON.Color4(1,0.9,0.9,1),
-        new BABYLON.Color4(0.9,1,1,1),
         new BABYLON.Color4(1,1,0.9,1),
+        new BABYLON.Color4(0.9,0.9,1,1),
+        new BABYLON.Color4(1,0.9,1,1),
+        new BABYLON.Color4(0.9,1,1,1),
+        new BABYLON.Color4(1,1,1,1),
         new BABYLON.Color4(0.9,0.9,1,1),
     ];
     const cloudColor = [
@@ -253,7 +253,7 @@ var createScene = function () {
     //         {x:mountHeight,z:-maxDist/4},
     //     ],
     // ]
-    const snowStart = 0.9;
+    const snowStart = 0.8;
     function GetElevation(pos) {
         const distToRange = DistanceToLine(pos,mtnRange[0],mtnRange[1]);
         // const dist = Math.min(...mountains.map(mtn => Math.sqrt((pos.x-mtn.x)**2+(pos.z-mtn.z)**2)));
@@ -279,7 +279,7 @@ var createScene = function () {
                     const z = chunkPos.z+l*boxSize;
                     const y = GetElevation({x,z})
                     
-                    // if ((((y/mountHeight)-snowStart)*1/(1-snowStart)) > Math.random()) colorCode = 'snow';
+                    if ((((y/mountHeight)-snowStart)*1/(1-snowStart)) > Math.random()) colorCode = 'snow';
 
                     const instance = GetInstance({colorCode,size:boxSize,x,y,z});
                 }
@@ -292,8 +292,8 @@ var createScene = function () {
                     const x = chunkPos.x-chunkSize/2+chunkSize*Math.random();
                     const z = chunkPos.z-chunkSize/2+chunkSize*Math.random();
                     const y = chunkPos.y + 20;
-                    const leaf = GetInstance({colorCode:'leaf',depth:1,width:1,height:10,x,y,z});
-                    const bush = GetInstance({colorCode:'leaf',depth:3,width:3,height:3,x,y:y+6,z});
+                    const trunk = GetInstance({colorCode:'leaf',depth:1,width:0.5,height:5,x,y,z});
+                    const bush = GetInstance({colorCode:'leaf',depth:1.5,width:1.5,height:1.5,x,y:y+3,z});
                 }
             }
 
