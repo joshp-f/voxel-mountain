@@ -184,11 +184,16 @@ var createScene = function () {
         'cloud':cloudColor
     }
     const meshTypeMap = {}
-    function GetInstance({colorCode,size,width,height,depth}){
+    function GetInstance({colorCode,size,width,height,depth,x,y,z}){
+        if (size) {
+            width = size;
+            height = size*10;
+            depth = size
+        }
         boxcount++;
-        const meshCode = `${size}-${colorCode}-${width??1}-${height??1}-${depth??1}`;
+        const meshCode = `${colorCode}-${width??1}-${height??1}-${depth??1}`;
         if (!(meshCode in meshTypeMap)) {
-            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {size,width,height,depth,faceColors:colorCodeMap[colorCode]}, scene);
+            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {width,height,depth,faceColors:colorCodeMap[colorCode]}, scene);
             newMesh.alwaysSelectAsActiveMesh = true;
             newMesh.position.y = -1000;
             // this is really slow :(
@@ -200,6 +205,10 @@ var createScene = function () {
         const mesh = meshTypeMap[meshCode];
         const instance = mesh.createInstance(meshCode+boxcount);
         instance.alwaysSelectAsActiveMesh = true;
+        if (size) y -= size*5;
+        instance.position.x = x;
+        instance.position.y = y;
+        instance.position.z = z;
         return instance;
     }
     var boxration = 1;
@@ -252,10 +261,7 @@ var createScene = function () {
                     
                     // if ((((y/mountHeight)-snowStart)*1/(1-snowStart)) > Math.random()) colorCode = 'snow';
 
-                    const instance = GetInstance({colorCode,size:boxSize});
-                    instance.position.x = x;
-                    instance.position.z = z;
-                    instance.position.y = y;
+                    const instance = GetInstance({colorCode,size:boxSize,x,y,z});
                 }
             }
             // const hasClump = Math.random() < 0.5;
@@ -263,13 +269,10 @@ var createScene = function () {
             // const clumpSize = Math.random()*10;
             if (hasClump) {
                 for (let i = 0; i < 20; i++) {
-                    const leaf = GetInstance({colorCode:'leaf',size:1});
                     const x = chunkPos.x+Math.random()*20
                     const z = chunkPos.z+Math.random()*20;
                     const y = chunkPos.y + 150;
-                    leaf.position.x = x;
-                    leaf.position.z = z;
-                    leaf.position.y = y;
+                    const leaf = GetInstance({colorCode:'leaf',size:1,x,y,z});
                 }
             }
 
@@ -278,10 +281,7 @@ var createScene = function () {
                 const x = chunkPos.x-chunkSize/2+chunkSize*Math.random();
                 const z = chunkPos.z-chunkSize/2+chunkSize*Math.random();
                 const y = mountHeight*1.2 + Math.random()*100;
-                const cloud = GetInstance({colorCode:'cloud',width:100,height:40,depth:300});
-                cloud.position.x = x;
-                cloud.position.z = z;
-                cloud.position.y = y;
+                const cloud = GetInstance({colorCode:'cloud',width:100,height:40,depth:300,x,y,z});
             }
         }
     }
