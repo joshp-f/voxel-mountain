@@ -85,7 +85,7 @@
     camera.speed = 10;
 
     // This targets the camera to scene origin
-    camera.setTarget(BABYLON.Vector3.Zero());
+    // camera.setTarget(BABYLON.Vector3.Zero());
 
     // This attaches the camera to the canvas
     camera.attachControl(canvas, true);
@@ -139,22 +139,32 @@
         new BABYLON.Color4(1,1,0.9,1),
         new BABYLON.Color4(0.9,0.9,1,1),
     ];
+    const cloudColor = [
+        new BABYLON.Color4(1,0.9,1,0.3),
+        new BABYLON.Color4(0.9,0.9,1,0.3),
+        new BABYLON.Color4(1,0.9,0.9,0.3),
+        new BABYLON.Color4(0.9,1,1,0.3),
+        new BABYLON.Color4(1,1,0.9,0.3),
+        new BABYLON.Color4(0.9,0.9,1,0.3),
+    ];
     let boxcount = 0;
     colorCodeMap = {
         'c1':BlockColor,
         'c2':BlockColor2,
         'leaf':LeafColor,
-        'snow':snowColor
+        'snow':snowColor,
+        'cloud':cloudColor
     }
     const meshTypeMap = {}
-    function GetInstance({colorCode,boxSize}){
+    function GetInstance({colorCode,size,width,height,depth}){
         boxcount++;
-        const meshCode = `${boxSize}-${colorCode}`;
+        const meshCode = `${size}-${colorCode}-${width??1}-${height??1}-${depth??1}`;
         if (!(meshCode in meshTypeMap)) {
-            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {size:boxSize,faceColors:colorCodeMap[colorCode]}, scene);
+            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {size,width,height,depth,faceColors:colorCodeMap[colorCode]}, scene);
             newMesh.alwaysSelectAsActiveMesh = true;
             // newMesh.isVisible = false;
             // newMesh.setParent(null);
+            if (colorCode === 'cloud') newMesh.hasVertexAlpha = true
             meshTypeMap[meshCode] = newMesh;
         }
         const mesh = meshTypeMap[meshCode];
@@ -194,7 +204,7 @@
                     
                     if ((((y/mountHeight)-snowStart)*1.1/(1-snowStart)) > Math.random()) colorCode = 'snow';
 
-                    const instance = GetInstance({colorCode,boxSize});
+                    const instance = GetInstance({colorCode,size:boxSize});
                     instance.position.x = x;
                     instance.position.z = z;
                     instance.position.y = y;
@@ -205,7 +215,7 @@
             // const clumpSize = Math.random()*10;
             if (hasClump) {
                 for (let i = 0; i < 20; i++) {
-                    const leaf = GetInstance({colorCode:'leaf',boxSize:1});
+                    const leaf = GetInstance({colorCode:'leaf',size:1});
                     const x = chunkPos.x+Math.random()*20
                     const z = chunkPos.z+Math.random()*20;
                     const y = chunkPos.y + 150;
@@ -213,6 +223,17 @@
                     leaf.position.z = z;
                     leaf.position.y = y;
                 }
+            }
+
+            const hasCloud = Math.random() > 0.999;
+            if (hasCloud) {
+                const x = chunkPos.x-chunkSize/2+chunkSize*Math.random();
+                const z = chunkPos.z-chunkSize/2+chunkSize*Math.random();
+                const y = mountHeight*1.2 + Math.random()*100;
+                const cloud = GetInstance({colorCode:'cloud',width:100,height:40,depth:300});
+                cloud.position.x = x;
+                cloud.position.z = z;
+                cloud.position.y = y;
             }
         }
     }
