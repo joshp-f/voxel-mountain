@@ -139,19 +139,19 @@ var createScene = function () {
         return Math.log(y) / Math.log(x);
     }
     const BlockColor = [
-        new BABYLON.Color4(0.9,0.8,0.1,1),
-        new BABYLON.Color4(0.9,1,0,1),
-        new BABYLON.Color4(0.8,0.8,0,1),
-        new BABYLON.Color4(0.8,0.7,0,1),
-        new BABYLON.Color4(0.1,0.9,0.1,1),
+        new BABYLON.Color4(0.5,0.5,0.5,1),
+        new BABYLON.Color4(0.4,0.4,0.4,1),
+        new BABYLON.Color4(0.6,0.6,0.6,1),
+        new BABYLON.Color4(0.5,0.5,0.5,1),
+        new BABYLON.Color4(0.1,0.7,0.1,1),
         new BABYLON.Color4(0,1,1,1),
     ];
     const BlockColor2 = [
-        new BABYLON.Color4(0.8,0.7,0,1),
-        new BABYLON.Color4(0.8,0.9,0,1),
-        new BABYLON.Color4(0.7,0.7,0,1),
-        new BABYLON.Color4(0.7,0.6,0,1),
-        new BABYLON.Color4(0.1,0.8,0.1,1),
+        new BABYLON.Color4(0.4,0.4,0.4,1),
+        new BABYLON.Color4(0.5,0.6,0.6,1),
+        new BABYLON.Color4(0.5,0.5,0.5,1),
+        new BABYLON.Color4(0.4,0.4,0.4,1),
+        new BABYLON.Color4(0.1,0.6,0.1,1),
         new BABYLON.Color4(0,0.9,0.9,1),
     ];
     const LeafColor = [
@@ -285,7 +285,7 @@ var createScene = function () {
                 }
             }
             // const hasClump = Math.random() < 0.5;
-            const hasClump = Math.random() > 0.9;
+            const hasClump = Math.random() > 0.99;
             // const clumpSize = Math.random()*10;
             if (hasClump) {
                 for (let i = 0; i < 10; i++) {
