@@ -3,8 +3,8 @@ import numpy as np
 import random
 
 # Define image dimensions
-height = 64
-width = 64 * 6  # 384px
+height = 256
+width = 256 * 6  # 384px
 
 # Define colors (RGB)
 light_green = (144, 238, 144)  # Light green
