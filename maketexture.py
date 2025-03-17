@@ -7,7 +7,7 @@ import random
 # BABYLON.Color4(0.1,0.6,0.1,1) -> RGB(26,153,26)
 # BABYLON.Color4(0.1,0.7,0.1,1) -> RGB(26,179,26)
 # Converting from 0-1 scale to 0-255 scale
-G1 = (26, 153, 26)  # Darker green (0.1,0.6,0.1)
+G1 = (10, 70, 10)  # Darker green (0.1,0.6,0.1)
 G2 = (26, 179, 26)  # Lighter green (0.1,0.7,0.1)
 
 # Create directory for images if it doesn't exist

@@ -231,10 +231,18 @@ var createScene = function () {
         const meshCode = `${colorCode}-${width??1}-${height??1}-${depth??1}`;
         if (!(meshCode in meshTypeMap)) {
             function MakeRenderOpts() {
-                if (colorCode === 'c18' || colorCode === 'c28') {
+                const cconfigMap = {
+                    'c16':{s:64,v:1},
+                    'c26':{s:64,v:2},
+                    'c17':{s:128,v:1},
+                    'c27':{s:128,v:2},
+                    'c18':{s:256,v:1},
+                    'c28':{s:256,v:2},
+                }
+                if (colorCode in cconfigMap) {
                     const mat = new BABYLON.StandardMaterial("mat");
                     // const texture = new BABYLON.Texture("https://assets.babylonjs.com/environments/numbers.jpg");
-                    const texture = new BABYLON.Texture("https://joshp-f.github.io/voxel-mountain/random_green_pattern.jpg");
+                    const texture = new BABYLON.Texture(`https://joshp-f.github.io/voxel-mountain/generated_images/green_pattern_${cconfigMap[colorCode].s}_${cconfigMap[colorCode].v}.png`);
                     mat.diffuseTexture = texture;
 
                     var columns = 6;
