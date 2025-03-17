@@ -94,7 +94,7 @@ var scene = null;
 var sceneToRender = null;
 var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
 var createScene = function () {
-    const chunkSize = 128;
+    const chunkSize = 256;
     const renderDist = 128;
     const maxDist = chunkSize*renderDist*2;
     const mountHeight = maxDist/16;
@@ -110,7 +110,7 @@ var createScene = function () {
     // scene.fogColor = new BABYLON.Color3(0.9, 0.9, 0.85);
 
     // This creates and positions a free camera (non-mesh)
-    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, mountHeight+2,10), scene);
+    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, mountHeight+2,0), scene);
     camera.maxZ = 50000;
     camera.speed = 10;
     camera.inverseRotationSpeed = 100;
@@ -120,12 +120,10 @@ var createScene = function () {
 
     // This attaches the camera to the canvas
     camera.attachControl(canvas, true);
+    scene.registerBeforeRender(function () {
+        camera.position.y = camera.position.y*0.8+(GetElevation(camera.position)+50)*0.2
+    });
 
-    // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-    // var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-    // // Default intensity is 1. Let's dim the light a small amount
-    // light.intensity = 0.9;
-    // light.specular = BABYLON.Color3.Black();
 
     var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(0, -1, 0), scene);
     light.intensity = 0.9;
@@ -146,19 +144,21 @@ var createScene = function () {
     function getBaseLog(x, y) {
         return Math.log(y) / Math.log(x);
     }
+    const G1 = () => new BABYLON.Color4(0.5,0.5,0.5,1)
+    const G2 = () => new BABYLON.Color4(0.6,0.6,0.6,1)
     const BlockColor = [
-        new BABYLON.Color4(0.5,0.5,0.5,1),
-        new BABYLON.Color4(0.4,0.4,0.4,1),
-        new BABYLON.Color4(0.6,0.6,0.6,1),
-        new BABYLON.Color4(0.5,0.5,0.5,1),
+        G1(),
+        G1(),
+        G1(),
+        G1(),
         new BABYLON.Color4(0.1,0.7,0.1,1),
         new BABYLON.Color4(0,1,1,1),
     ];
     const BlockColor2 = [
-        new BABYLON.Color4(0.4,0.4,0.4,1),
-        new BABYLON.Color4(0.5,0.6,0.6,1),
-        new BABYLON.Color4(0.5,0.5,0.5,1),
-        new BABYLON.Color4(0.4,0.4,0.4,1),
+        G2(),
+        G2(),
+        G2(),
+        G2(),
         new BABYLON.Color4(0.1,0.6,0.1,1),
         new BABYLON.Color4(0,0.9,0.9,1),
     ];
@@ -301,7 +301,7 @@ var createScene = function () {
             dist = Math.sqrt(i**2+j**2);
             // 122333344444444
             const integerDist = Math.ceil(dist);
-            const tierMap = [1,1,1,2,2,2,2,3,3,3,3,3,4,4,4,4,5,5,5,5,5,6,6,6,6,6,6];
+            const tierMap = [1,2,2,3,3,4,4,5,5,6,6,6];
             const tier = tierMap[integerDist] ??  integerDist+1
             const boxSize =Math.min(2**(tier),chunkSize);
             const boxesPerChunk = chunkSize/boxSize;
@@ -309,12 +309,12 @@ var createScene = function () {
             chunkPos.y = GetElevation(chunkPos);
             for (let k = -boxesPerChunk/2; k < boxesPerChunk/2; k++) {
                 for (let l = -boxesPerChunk/2; l < boxesPerChunk/2; l++) {
-                    let colorCode = `${Math.random() > 0.5 ? 'c1' : 'c2'}${Math.min(tier,blockAvgLevels.length+1)}`;
+                    let colorCode = `${Math.random() > 0.5 ? 'c1' : 'c2'}${Math.min(tier,blockAvgLevels.length)}`;
                     const x = chunkPos.x+k*boxSize;
                     const z = chunkPos.z+l*boxSize;
                     const y = GetElevation({x,z})
                     
-                    if ((((y/mountHeight)-snowStart)*1/(1-snowStart)) > Math.random()) colorCode = 'snow';
+                    // if ((((y/mountHeight)-snowStart)*1/(1-snowStart)) > Math.random()) colorCode = 'snow';
 
                     const instance = GetInstance({colorCode,size:boxSize,x,y,z});
                 }
