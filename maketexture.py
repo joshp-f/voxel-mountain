@@ -44,8 +44,7 @@ for resolution in resolutions:
                 # Determine which face this pixel belongs to (0-5)
                 face = x // face_width
                 
-                # Faces 1,2,3,4 (index 1,2,3,4) should be rock texture
-                if 1 <= face <= 4:
+                if face < 4:
                     # For rock textures, use rock colors
                     pixels[x, y] = random.choice(ROCK_COLORS)
                     
