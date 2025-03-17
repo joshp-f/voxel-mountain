@@ -231,7 +231,7 @@ var createScene = function () {
         const meshCode = `${colorCode}-${width??1}-${height??1}-${depth??1}`;
         if (!(meshCode in meshTypeMap)) {
             function MakeRenderOpts() {
-                if (colorCode === 'c18') {
+                if (colorCode === 'c18' || colorCode === 'c28') {
                     const mat = new BABYLON.StandardMaterial("mat");
                     // const texture = new BABYLON.Texture("https://assets.babylonjs.com/environments/numbers.jpg");
                     const texture = new BABYLON.Texture("https://joshp-f.github.io/voxel-mountain/random_green_pattern.jpg");
