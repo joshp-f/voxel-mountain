@@ -230,7 +230,28 @@ var createScene = function () {
         boxcount++;
         const meshCode = `${colorCode}-${width??1}-${height??1}-${depth??1}`;
         if (!(meshCode in meshTypeMap)) {
-            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {width,height,depth,faceColors:colorCodeMap[colorCode]}, scene);
+            function MakeRenderOpts() {
+                if (colorCode === 'c18') {
+                    const mat = new BABYLON.StandardMaterial("mat");
+                    // const texture = new BABYLON.Texture("https://assets.babylonjs.com/environments/numbers.jpg");
+                    const texture = new BABYLON.Texture("random_green_pattern.jpg");
+                    mat.diffuseTexture = texture;
+
+                    var columns = 6;
+                    var rows = 1;
+
+                    const faceUV = new Array(6);
+
+                    for (let i = 0; i < 6; i++) {
+                        faceUV[i] = new BABYLON.Vector4(i / columns, 0, (i + 1) / columns, 1 / rows);
+                    }
+                    return{faceUV,wrap:true,material:mat};
+                }
+                return {faceColors:colorCodeMap[colorCode]};
+            }
+            const renderOptions = MakeRenderOpts();
+            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {width,height,depth,...renderOptions}, scene);
+            if (renderOptions.material) newMesh.material = renderOptions.material;
             newMesh.alwaysSelectAsActiveMesh = true;
             newMesh.position.y = -1000;
             // this is really slow :(
@@ -238,6 +259,7 @@ var createScene = function () {
             // newMesh.setParent(null);
             if (colorCode === 'cloud') newMesh.hasVertexAlpha = true
             meshTypeMap[meshCode] = newMesh;
+
         }
         const mesh = meshTypeMap[meshCode];
         const instance = mesh.createInstance(meshCode+boxcount);
@@ -301,8 +323,8 @@ var createScene = function () {
             dist = Math.sqrt(i**2+j**2);
             // 122333344444444
             const integerDist = Math.ceil(dist);
-            const tierMap = [1,2,2,3,3,4,4,5,5,6,6,6];
-            const tier = tierMap[integerDist] ??  integerDist+1
+            const tierMap = [1,2,2,3,3,4,4,5,5,6,6,6,7,7,7,7,8,8,8,8,9,9,9,9,9];
+            const tier = tierMap[integerDist] ??  9
             const boxSize =Math.min(2**(tier),chunkSize);
             const boxesPerChunk = chunkSize/boxSize;
             const chunkPos = {x:i*chunkSize,z:j*chunkSize};
