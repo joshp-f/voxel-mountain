@@ -22,7 +22,7 @@ for resolution in resolutions:
     width = resolution * 6  # Each image is x by 6x
     
     # Generate 2 variations with different random patterns
-    for variation in range(1, 3):
+    for variation in range(1, 5):
         # Create a new image with RGB mode
         img = Image.new('RGB', (width, height))
         

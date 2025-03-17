@@ -218,13 +218,15 @@ var createScene = function () {
         const c2 = BlockColor.map((bel,i) => bel.scale(level).add(BlockColor2[i].scale(1-level)));
         colorCodeMap[`c1${index}`] = c1;
         colorCodeMap[`c2${index}`] = c2;
+        colorCodeMap[`c3${index}`] = c1;
+        colorCodeMap[`c4${index}`] = c2;
         index++;
     }
     const meshTypeMap = {}
     function GetInstance({colorCode,size,width,height,depth,x,y,z}){
         if (size) {
             width = size;
-            height = size*10;
+            height = size;
             depth = size
         }
         boxcount++;
@@ -234,10 +236,16 @@ var createScene = function () {
                 const cconfigMap = {
                     'c16':{s:64,v:1},
                     'c26':{s:64,v:2},
+                    'c36':{s:64,v:3},
+                    'c46':{s:64,v:4},
                     'c17':{s:128,v:1},
                     'c27':{s:128,v:2},
+                    'c37':{s:128,v:3},
+                    'c47':{s:128,v:4},
                     'c18':{s:256,v:1},
                     'c28':{s:256,v:2},
+                    'c38':{s:256,v:3},
+                    'c48':{s:256,v:4},
                 }
                 if (colorCode in cconfigMap) {
                     const mat = new BABYLON.StandardMaterial("mat");
@@ -339,7 +347,7 @@ var createScene = function () {
             chunkPos.y = GetElevation(chunkPos);
             for (let k = -boxesPerChunk/2; k < boxesPerChunk/2; k++) {
                 for (let l = -boxesPerChunk/2; l < boxesPerChunk/2; l++) {
-                    let colorCode = `${Math.random() > 0.5 ? 'c1' : 'c2'}${Math.min(tier,blockAvgLevels.length)}`;
+                    let colorCode = `c${Math.ceil(Math.random()*4)}${Math.min(tier,blockAvgLevels.length)}`;
                     const x = chunkPos.x+k*boxSize;
                     const z = chunkPos.z+l*boxSize;
                     const y = GetElevation({x,z})
