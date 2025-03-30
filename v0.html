@@ -1,0 +1,244 @@
+<!doctype html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/recast.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/addons/babylonjs.addons.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html,
+            body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
+    <script>
+
+const s = {
+    chunks:[],
+    block_colors: {},
+}
+function GetBlockColor(x,y) {
+    return [Math.random(),Math.random(),Math.random()];
+}
+function AddVectors(v1,v2) {
+    return v1.map((item,i) => item+v2[i]);
+}
+function MultiplyVector(v1,n) {
+    return v1.map((item) => item*n);
+}
+class CubeList {
+    constructor() {
+        this.cubes = []
+    }
+    GenerateCubeLevel(size){
+        const blockCountRadius = 1;
+        for (let i = -blockCountRadius*size/2; i <=blockCountRadius*size/2; i += size) {
+            for (let j = -blockCountRadius*size/2; j <=blockCountRadius*size/2; j += size) {
+                this.cubes.push({x:i,z:j,y:-size,size});
+            }
+        }
+    }
+    GenerateCubeLevels() {
+        for (const size of [2,4,8,16,32,64]) {
+            this.GenerateCubeLevel(size);
+        }
+    }
+    GenerateCubeColors() {
+        for (const cube of this.cubes) {
+            let finalColor = [0,0,0];
+            let count = 0;
+            for (let i = cube.x-cube.size/2+0.5; i < cube.x+cube.size/2;i++) {
+                for (let j = cube.y-cube.size/2+0.5; j < cube.y+cube.size/2;j++) {
+                    const color = GetBlockColor(i,j);
+                    finalColor = AddVectors(finalColor,color);
+                    count++;
+                }
+            }
+            cube.color = MultiplyVector(finalColor,1/count);
+        }
+    }
+}
+const cubeList = new CubeList();
+function Generate() {
+    cubeList.GenerateCubeLevels();
+    cubeList.GenerateCubeColors();
+}
+function Render() {
+    for (const cube of cubeList.cubes) {
+        cubeRenderer.RenderCube(cube)
+    }
+    console.log(cubeRenderer.boxCount,cubeList.cubes.length);
+}
+
+function Sigmoid(x) {
+    return 1 / (1 + Math.exp(-x));
+}
+
+function DistanceToLine(p, s, e) {
+    // Calculate line length squared
+    const lineLength2 = (e.x - s.x) * (e.x - s.x) + (e.z - s.z) * (e.z - s.z);
+    
+    if (lineLength2 === 0) {
+        // If line is actually a point, return distance to that point
+        return Math.sqrt((p.x - s.x) * (p.x - s.x) + (p.z - s.z) * (p.z - s.z));
+    }
+    
+    // Calculate projection position (t) along line segment
+    const t = Math.max(0, Math.min(1, (
+        ((p.x - s.x) * (e.x - s.x) + (p.z - s.z) * (e.z - s.z)) / lineLength2
+    )));
+    
+    // Calculate closest point on line
+    const projectionX = s.x + t * (e.x - s.x);
+    const projectionY = s.z + t * (e.z - s.z);
+    
+    // Return distance to closest point
+    return Math.sqrt(
+        (p.x - projectionX) * (p.x - projectionX) + 
+        (p.z - projectionY) * (p.z - projectionY)
+    );
+}
+
+function getBaseLog(x, y) {
+    return Math.log(y) / Math.log(x);
+}
+class CubeRenderer {
+    constructor() {
+        this.meshTypeMap = {};
+        this.boxCount = 0;
+    }
+    GetColor(color) {
+        const faceColors = [];
+        const roundedColor = color.map(c => Math.floor(c*10)/10);
+        const colorCode = roundedColor.map(String).join('-');
+        for (let i = 0; i < 6; i++) {
+            faceColors.push(new BABYLON.Color4(...roundedColor,0));
+        }
+        return {colorCode,faceColors};
+    }
+    RenderCube({color,size,width,height,depth,x,y,z}){
+        if (size) {
+            width = size;
+            height = size;
+            depth = size
+        }
+        this.boxCount++;
+        const {faceColors,colorCode} = this.GetColor(color);
+        const meshCode = `${colorCode}-${width??1}-${height??1}-${depth??1}`;
+        console.log(meshCode);
+        if (!(meshCode in this.meshTypeMap)) {
+
+            const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {width,height,depth,faceColors}, scene);
+            newMesh.alwaysSelectAsActiveMesh = true;
+            newMesh.position.y = -10000;
+            this.meshTypeMap[meshCode] = newMesh;
+
+        }
+        const mesh = this.meshTypeMap[meshCode];
+        const instance = mesh.createInstance(meshCode+this.boxCount);
+        instance.alwaysSelectAsActiveMesh = true;
+        instance.position.x = x;
+        instance.position.y = y;
+        instance.position.z = z;
+        return instance;
+    }
+}
+const cubeRenderer = new CubeRenderer();
+var boxration = 1;
+
+
+function GetElevation(pos) {
+    return 0;
+}
+
+
+var canvas = document.getElementById("renderCanvas");
+
+var startRenderLoop = function (engine, canvas) {
+    engine.runRenderLoop(function () {
+        if (sceneToRender && sceneToRender.activeCamera) {
+            sceneToRender.render();
+        }
+    });
+}
+var engine = null;
+var scene = null;
+var sceneToRender = null;
+var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+var createScene = function () {
+    var scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color4(0.5, 0.8, 0.89, 1);
+    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 10,0), scene);
+    camera.maxZ = 50000;
+    camera.speed = 10;
+    camera.inverseRotationSpeed = 100;
+    camera.attachControl(canvas, true);
+    var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(0, -1, 0), scene);
+    light.intensity = 0.9;
+    light.groundColor = new BABYLON.Color3(1,1,1);
+    light.specular = BABYLON.Color3.Black();
+    Generate();
+    Render();
+    scene.freezeActiveMeshes();
+    return scene;
+};
+window.initFunction = async function() {  
+    var asyncEngineCreation = async function() {
+        try {
+        return createDefaultEngine();
+        } catch(e) {
+        console.log("the available createEngine function failed. Creating the default engine instead");
+        return createDefaultEngine();
+        }
+    }
+
+    window.engine = await asyncEngineCreation();
+    if (!engine) throw 'engine should not be null.';
+    startRenderLoop(engine, canvas);
+    window.scene = createScene();
+};
+initFunction().then(() => {sceneToRender = scene});
+    // Resize
+window.addEventListener("resize", function () {
+    engine.resize();
+});
+        </script>
+    </body>
+</html>
