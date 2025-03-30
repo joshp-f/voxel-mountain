@@ -23,6 +23,8 @@
         <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
         <script src="https://cdn.babylonjs.com/addons/babylonjs.addons.min.js"></script>
         <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+
 
         <style>
             html,
@@ -50,14 +52,20 @@
     <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
     <script>
 
-const s = {
-    chunks:[],
-    block_colors: {},
-}
-function GetBlockColor(x,y) {
-    return [Math.random(),Math.random(),Math.random()];
+const simplex = new SimplexNoise();
+
+function GetBlockColor(x,z) {
+    const elevation = simplex.noise2D(x/256,z/256);
+    if (elevation > 0.4) return [0.5,0.5,0.9+Math.random()*0.1];
+    const riverZ = Math.sin(x/20)*20;
+    const distToRiver = Math.abs(riverZ-z);
+    if (distToRiver < 6) return [0.5,0.5,0.9+Math.random()*0.1];
+    return [Math.random()*0.4,0.5+Math.random()*0.5,Math.random()*0.4];
+    // todo - make another bigger feature - hills? biomes?
 }
 function AddVectors(v1,v2) {
+
+
     return v1.map((item,i) => item+v2[i]);
 }
 function MultiplyVector(v1,n) {
@@ -68,15 +76,15 @@ class CubeList {
         this.cubes = []
     }
     GenerateCubeLevel(size){
-        const blockCountRadius = 1;
-        for (let i = -blockCountRadius*size/2; i <=blockCountRadius*size/2; i += size) {
-            for (let j = -blockCountRadius*size/2; j <=blockCountRadius*size/2; j += size) {
+        const blockCountRadius = 128;
+        for (let i = (-blockCountRadius+0.5)*size; i <= (blockCountRadius-0.5)*size; i += size) {
+            for (let j =  (-blockCountRadius+0.5)*size; j <= (blockCountRadius-0.5)*size; j += size) {
                 this.cubes.push({x:i,z:j,y:-size,size});
             }
         }
     }
     GenerateCubeLevels() {
-        for (const size of [2,4,8,16,32,64]) {
+        for (const size of [1,2,4,8,16,32]) {
             this.GenerateCubeLevel(size);
         }
     }
@@ -84,10 +92,12 @@ class CubeList {
         for (const cube of this.cubes) {
             let finalColor = [0,0,0];
             let count = 0;
-            for (let i = cube.x-cube.size/2+0.5; i < cube.x+cube.size/2;i++) {
-                for (let j = cube.y-cube.size/2+0.5; j < cube.y+cube.size/2;j++) {
+            for (let i = cube.x-cube.size/2+0.5; i <= cube.x+cube.size/2-0.5;i++) {
+                for (let j = cube.z-cube.size/2+0.5; j <= cube.z+cube.size/2-0.5;j++) {
                     const color = GetBlockColor(i,j);
-                    finalColor = AddVectors(finalColor,color);
+                    finalColor[0] += color[0];
+                    finalColor[1] += color[1];
+                    finalColor[2] += color[2];
                     count++;
                 }
             }
@@ -97,14 +107,19 @@ class CubeList {
 }
 const cubeList = new CubeList();
 function Generate() {
+    console.time("Generating");
     cubeList.GenerateCubeLevels();
     cubeList.GenerateCubeColors();
+    console.timeEnd("Generating");
+    console.log("Generated",cubeList.cubes.length,"cubes");
+    
 }
 function Render() {
+    console.time("Rendering");
     for (const cube of cubeList.cubes) {
         cubeRenderer.RenderCube(cube)
     }
-    console.log(cubeRenderer.boxCount,cubeList.cubes.length);
+    console.timeEnd("Rendering");
 }
 
 function Sigmoid(x) {
@@ -162,7 +177,6 @@ class CubeRenderer {
         this.boxCount++;
         const {faceColors,colorCode} = this.GetColor(color);
         const meshCode = `${colorCode}-${width??1}-${height??1}-${depth??1}`;
-        console.log(meshCode);
         if (!(meshCode in this.meshTypeMap)) {
 
             const newMesh = BABYLON.MeshBuilder.CreateBox(`${meshCode}`, {width,height,depth,faceColors}, scene);
