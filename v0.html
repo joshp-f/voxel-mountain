@@ -108,9 +108,12 @@ class CubeList {
     }
     GenerateCubeLevel(size){
         const blockCountRadius = 128;
-        for (let i = (-blockCountRadius+0.5)*size; i <= (blockCountRadius-0.5)*size; i += size) {
-            for (let j =  (-blockCountRadius+0.5)*size; j <= (blockCountRadius-0.5)*size; j += size) {
-                this.cubes.push({x:i,z:j,y:Elevation(i,j)-size,size});
+        for (let i = -blockCountRadius+0.5; i <= blockCountRadius-0.5; i++) {
+            for (let j =  -blockCountRadius+0.5; j <= blockCountRadius-0.5; j++) {
+                if ( size > 1 && i > -blockCountRadius/2 && i < blockCountRadius/2 && j > -blockCountRadius/2 && j < blockCountRadius/2) continue;
+                const x = i*size;
+                const z = j*size;
+                this.cubes.push({x,z,y:Elevation(x,z)-size,size});
             }
         }
     }
