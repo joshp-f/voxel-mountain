@@ -54,13 +54,44 @@
 
 const simplex = new SimplexNoise();
 
-function GetBlockColor(x,z) {
-    const elevation = simplex.noise2D(x/256,z/256);
-    if (elevation > 0.4) return [0.5,0.5,0.9+Math.random()*0.1];
+/*
+Only scale color in one dir
+*/
+
+function Elevation(x,z) {
+    return (1+simplex.noise2D(x/256,z/256))*64;
+}
+
+function Lvl1Color(x,z) {
+    return [0.2,0.5+Math.random()*0.5,0.2];
+}
+function Lvl4Color(x,z) {
+    const pathX = Math.sin(z/20)*20;
+    const distToPath = Math.abs(pathX-x);
+    if (distToPath <= 2) return [0.8,0.5+Math.random()*0.5,0.4];
+}
+function Lvl16Color(x,z) {
     const riverZ = Math.sin(x/20)*20;
     const distToRiver = Math.abs(riverZ-z);
-    if (distToRiver < 6) return [0.5,0.5,0.9+Math.random()*0.1];
-    return [Math.random()*0.4,0.5+Math.random()*0.5,Math.random()*0.4];
+    if (distToRiver <= 8) return [0.7,0.7,0.8+Math.random()*0.2];
+}
+function Lvl256Color(x,z) {
+    const elevation = simplex.noise2D(x/(256*16),z/(256*16));
+    if (elevation > 0.75) {
+        return [0,elevation,elevation];
+    }
+}
+const LeveledBlockColors = [
+    Lvl256Color,
+    Lvl16Color,
+    Lvl4Color,
+    Lvl1Color
+]
+function GetBlockColor(x,z) {
+    for (const fn of LeveledBlockColors) {
+        const res = fn(x,z);
+        if (res) return res;
+    }
     // todo - make another bigger feature - hills? biomes?
 }
 function AddVectors(v1,v2) {
@@ -79,12 +110,12 @@ class CubeList {
         const blockCountRadius = 128;
         for (let i = (-blockCountRadius+0.5)*size; i <= (blockCountRadius-0.5)*size; i += size) {
             for (let j =  (-blockCountRadius+0.5)*size; j <= (blockCountRadius-0.5)*size; j += size) {
-                this.cubes.push({x:i,z:j,y:-size,size});
+                this.cubes.push({x:i,z:j,y:Elevation(i,j)-size,size});
             }
         }
     }
     GenerateCubeLevels() {
-        for (const size of [1,2,4,8,16,32]) {
+        for (const size of [1,2,4,8,16,32,64]) {
             this.GenerateCubeLevel(size);
         }
     }
@@ -161,7 +192,7 @@ class CubeRenderer {
     }
     GetColor(color) {
         const faceColors = [];
-        const roundedColor = color.map(c => Math.floor(c*10)/10);
+        const roundedColor = color.map(c => Math.floor(c*40)/40);
         const colorCode = roundedColor.map(String).join('-');
         for (let i = 0; i < 6; i++) {
             faceColors.push(new BABYLON.Color4(...roundedColor,0));
@@ -196,12 +227,6 @@ class CubeRenderer {
 }
 const cubeRenderer = new CubeRenderer();
 var boxration = 1;
-
-
-function GetElevation(pos) {
-    return 0;
-}
-
 
 var canvas = document.getElementById("renderCanvas");
 
