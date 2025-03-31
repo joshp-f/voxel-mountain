@@ -184,6 +184,15 @@ function DistanceToLine(p, s, e) {
         (p.z - projectionY) * (p.z - projectionY)
     );
 }
+const dm = 0.1
+const faceColorModifiers = [
+    [dm,0.0,0.0],
+    [0.0,0.0,dm],
+    [0.0,dm,0.0],
+    [-dm,0.0,0.0],
+    [0.0,-dm,0.0],
+    [0.0,0.0,-dm],
+]
 
 function getBaseLog(x, y) {
     return Math.log(y) / Math.log(x);
@@ -198,7 +207,9 @@ class CubeRenderer {
         const roundedColor = color.map(c => Math.floor(c*40)/40);
         const colorCode = roundedColor.map(String).join('-');
         for (let i = 0; i < 6; i++) {
-            faceColors.push(new BABYLON.Color4(...roundedColor,0));
+            const modifier = faceColorModifiers[i];
+            const newColor = AddVectors(modifier,roundedColor).map(c => Math.max(Math.min(c,1),0))
+            faceColors.push(new BABYLON.Color4(...newColor,0));
         }
         return {colorCode,faceColors};
     }
