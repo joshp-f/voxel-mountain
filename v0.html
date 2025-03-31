@@ -23,8 +23,7 @@
         <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
         <script src="https://cdn.babylonjs.com/addons/babylonjs.addons.min.js"></script>
         <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
-
+        <script src='perlin.js'></script>
 
         <style>
             html,
@@ -52,14 +51,15 @@
     <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
     <script>
 
-const simplex = new SimplexNoise();
 
 /*
 Only scale color in one dir
 */
 
 function Elevation(x,z) {
-    return (1+simplex.noise2D(x/256,z/256))*64;
+    const flatval = Math.max(0,noise.simplex2(x/1024,z/1024));
+    let sval = ((noise.simplex2(x/256,z/256)+1)/2)*flatval*2;
+    return sval*64;
 }
 
 function Lvl1Color(x,z) {
@@ -76,7 +76,7 @@ function Lvl16Color(x,z) {
     if (distToRiver <= 8) return [0.7,0.7,0.8+Math.random()*0.2];
 }
 function Lvl256Color(x,z) {
-    const elevation = simplex.noise2D(x/(256*16),z/(256*16));
+    const elevation = noise.simplex2(x/(256*16),z/(256*16));
     if (elevation > 0.75) {
         return [0,elevation,elevation];
     }
@@ -85,13 +85,13 @@ const LeveledBlockColors = [
     Lvl256Color,
     Lvl16Color,
     Lvl4Color,
-    Lvl1Color
 ]
 function GetBlockColor(x,z) {
     for (const fn of LeveledBlockColors) {
         const res = fn(x,z);
         if (res) return res;
     }
+    return Lvl1Color(x,z);
     // todo - make another bigger feature - hills? biomes?
 }
 function AddVectors(v1,v2) {
