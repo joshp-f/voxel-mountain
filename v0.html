@@ -57,6 +57,7 @@ Only scale color in one dir
 */
 
 function Elevation(x,z) {
+    return 0;
     const bigMtn2048Magnitude = (Math.max(0.5,noise.simplex2(x/32768,z/32768))-0.5)*2;
     const Mtn1024Magnitude = (Math.max(0.5,noise.simplex2(x/16384,z/16384))-0.5)*2;
     const smallMtn512Magnitude = (Math.max(0.5,noise.simplex2(x/8192,z/8192))-0.5)*2;
@@ -111,90 +112,10 @@ function MultiplyVector(v1,n) {
 function CubeDistance(x1, y1, x2, y2) {
   return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2));
 }
-class CubeList {
-    constructor() {
-        this.cubes_index = { }
-        this.cube_sizes = [1,2,4,8,16,32,64];
-        this.cube_sizes = [1,2];
-        this.block_size_radius = 128;
-    }
-    GenerateCubeLevel(size){
-        const blockCountRadius = this.block_size_radius;
-        for (let i = -blockCountRadius+0.5; i <= blockCountRadius-0.5; i++) {
-            for (let j =  -blockCountRadius+0.5; j <= blockCountRadius-0.5; j++) {
-                if ( size > 1 && i > -blockCountRadius/2 && i < blockCountRadius/2 && j > -blockCountRadius/2 && j < blockCountRadius/2) continue;
-                const x = i*size;
-                const z = j*size;
-                const id = this.GetCubeId(size,x,z);
-                this.cubes_index[id] = {id,x,z,y:Elevation(x,z)-size,size};
-            }
-        }
-    }
-    GetCubes(){
-        return Object.values(this.cubes_index);
-    }
-    GetCubeId(size,x,z) {
-        return `${size}-${Math.round(x)}-${Math.round(z)}`;
-    }
-    GenerateCubeLevels() {
-        for (const size of this.cube_sizes) {
-            this.GenerateCubeLevel(size);
-        }
-    }
-    GenerateCubeColors() {
-        for (const cube of this.GetCubes()) {
-            let finalColor = [0,0,0];
-            let count = 0;
-            for (let i = cube.x-cube.size/2+0.5; i <= cube.x+cube.size/2-0.5;i++) {
-                for (let j = cube.z-cube.size/2+0.5; j <= cube.z+cube.size/2-0.5;j++) {
-                    const color = GetBlockColor(i,j);
-                    finalColor[0] += color[0];
-                    finalColor[1] += color[1];
-                    finalColor[2] += color[2];
-                    count++;
-                }
-            }
-            cube.color = MultiplyVector(finalColor,1/count);
-        }
-    }
-    RegenerateNearbyCubes(camera) {
-        const size = this.cube_sizes[1];
-        const radius = this.block_size_radius;
-        const radiusToDelete = (radius/2)*0.8;
-        const pos = camera.position;
-        const deletedCubes = [];
-        for (let i = -radius+0.5; i <= radius-0.5; i++) {
-            for (let j =  -radius+0.5; j <= radius-0.5; j++) {
-                const x = i*size+pos._x;
-                const z = j*size+pos._z;
-                const id = this.GetCubeId(size,x,z);
-                if (!(id in this.cubes_index)) continue;
-                const dist = CubeDistance(x,z,pos._x,pos._z);
-                if (dist > radiusToDelete) continue;
-                delete this.cubes_index[id];
-                deletedCubes.push(id);
-
-            }
-        } 
-        return deletedCubes;
-
-    }
-}
-const cubeList = new CubeList();
 function Generate() {
-    console.time("Generating");
-    cubeList.GenerateCubeLevels();
-    cubeList.GenerateCubeColors();
-    console.timeEnd("Generating");
-    console.log("Generated",cubeList.GetCubes().length,"cubes");
     
 }
 function Render() {
-    console.time("Rendering");
-    for (const cube of cubeList.GetCubes()) {
-        cubeRenderer.RenderCube(cube)
-    }
-    console.timeEnd("Rendering");
 }
 
 
@@ -240,13 +161,29 @@ const faceColorModifiers = [
 function getBaseLog(x, y) {
     return Math.log(y) / Math.log(x);
 }
+let CHUNK_SIZE = 16;
 class CubeRenderer {
     constructor() {
         this.meshTypeMap = {};
         this.boxCount = 0;
-        this.instances = {};
+        this.oldChunk = {x:0,z:0};
+        this.chunks = {};
     }
-    GetColor(color) {
+    GenerateCubeColor(cube) {
+        let finalColor = [0,0,0];
+        let count = 0;
+        for (let i = cube.x-cube.size/2+0.5; i <= cube.x+cube.size/2-0.5;i++) {
+            for (let j = cube.z-cube.size/2+0.5; j <= cube.z+cube.size/2-0.5;j++) {
+                const color = GetBlockColor(i,j);
+                finalColor[0] += color[0];
+                finalColor[1] += color[1];
+                finalColor[2] += color[2];
+                count++;
+            }
+        }
+        return MultiplyVector(finalColor,1/count);
+    }
+    GetFaceColor(color) {
         const faceColors = [];
         const roundedColor = color.map(c => Math.floor(c*40)/40);
         const colorCode = roundedColor.map(String).join('-');
@@ -257,14 +194,14 @@ class CubeRenderer {
         }
         return {colorCode,faceColors};
     }
-    RenderCube({id,color,size,width,height,depth,x,y,z}){
+    RenderCube({color,size,width,height,depth,x,y,z}){
         if (size) {
             width = size;
             height = size;
             depth = size
         }
         this.boxCount++;
-        const {faceColors,colorCode} = this.GetColor(color);
+        const {faceColors,colorCode} = this.GetFaceColor(color);
         const meshCode = `${colorCode}-${width??1}-${height??1}-${depth??1}`;
         if (!(meshCode in this.meshTypeMap)) {
 
@@ -280,14 +217,68 @@ class CubeRenderer {
         instance.position.x = x;
         instance.position.y = y;
         instance.position.z = z;
-        this.instances[id] = instance;
         return instance;
     }
-    DeleteCubes(cube_ids) {
-        for (const cube_id of cube_ids) {
-            this.instances[cube_id].dispose();
-            delete this.instances[cube_id];
+    DeleteChunk(id) {
+        for (const cube of this.chunks[id].cubes) {
+            cube.instance.dispose();
         }
+        delete this.chunks[id];
+    }
+    CreateChunk(id,x,z,level) {
+        const chunk = {
+            level,
+            cubes:[]
+        }
+        const blocks_in_chunk = CHUNK_SIZE/level;
+        for (let i = 0; i < blocks_in_chunk; i++) {
+            for (let j = 0; j < blocks_in_chunk; j++) {
+                // This math is bad, fix later
+                const blockX = x*CHUNK_SIZE - CHUNK_SIZE/2 + i*level;
+                const blockZ = z*CHUNK_SIZE - CHUNK_SIZE/2 + j*level;
+                const cube = {
+                    x:blockX,
+                    z:blockZ,
+                    y:Elevation(blockX,blockZ),
+                    size:level
+                };
+                cube.color = this.GenerateCubeColor(cube);
+                cube.instance = this.RenderCube(cube);
+                chunk.cubes.push(cube);
+            }
+        }
+        this.chunks[id] = chunk;
+    }
+    OnMove(scene,camera) {
+        const newChunk = {x:Math.round(camera.position._x/CHUNK_SIZE),z:Math.round(camera.position._z/CHUNK_SIZE)};
+        if (newChunk.x == this.oldChunk.x && newChunk.z == this.oldChunk.z) {
+            return;
+        }
+        // scene.unfreezeActiveMeshes();
+        const levels = [1];
+        for (const level of levels) {
+            const newChunks = [];
+            const chunkRange = levels*2;
+            for ( let x = newChunk.x-chunkRange; x < newChunk.x+chunkRange+1; x++) {
+                newChunks.push({x,z:newChunk.z-chunkRange});
+                newChunks.push({x,z:newChunk.z+chunkRange});
+            }
+            for ( let z = newChunk.z-chunkRange; z < newChunk.z+chunkRange+1; z++) {
+                newChunks.push({x:newChunk.x-chunkRange,z});
+                newChunks.push({x:newChunk.x+chunkRange,z});
+            }
+            for (const chunk of newChunks) {
+                const id = `${chunk.x}-${chunk.z}`;
+                if (id in this.chunks && this.chunks.level === level) continue;
+                if (id in this.chunks) {
+                    this.DeleteChunk(id);
+                }
+                this.CreateChunk(id,chunk.x,chunk.z,level);
+            }
+        }
+        // scene.freezeActiveMeshes();
+
+        this.oldChunk = newChunk;
     }
 }
 const cubeRenderer = new CubeRenderer();
@@ -308,7 +299,7 @@ var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, {
 var createScene = function () {
     var scene = new BABYLON.Scene(engine);
     scene.clearColor = new BABYLON.Color4(0.5, 0.8, 0.89, 1);
-    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 10,0), scene);
+    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(1000, 500,1000), scene);
     camera.maxZ = 50000;
     camera.speed = 10;
     camera.inverseRotationSpeed = 100;
@@ -319,16 +310,10 @@ var createScene = function () {
     light.specular = BABYLON.Color3.Black();
     Generate();
     Render();
-    scene.freezeActiveMeshes();
+    // scene.freezeActiveMeshes();
     setInterval(() => {
-        const deletedCubeIds = cubeList.RegenerateNearbyCubes(camera);  
-        console.log(deletedCubeIds);
-        if (deletedCubeIds.length > 0) {
-            scene.unfreezeActiveMeshes();
-            cubeRenderer.DeleteCubes(deletedCubeIds);
-            scene.freezeActiveMeshes();
-        }
-    }, (1000));
+        cubeRenderer.OnMove(scene,camera);
+    }, (100));
     return scene;
 };
 
