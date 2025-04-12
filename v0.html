@@ -107,28 +107,42 @@ function AddVectors(v1,v2) {
 function MultiplyVector(v1,n) {
     return v1.map((item) => item*n);
 }
+
+function CubeDistance(x1, y1, x2, y2) {
+  return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2));
+}
 class CubeList {
     constructor() {
-        this.cubes = []
+        this.cubes_index = { }
+        this.cube_sizes = [1,2,4,8,16,32,64];
+        this.cube_sizes = [1,2];
+        this.block_size_radius = 128;
     }
     GenerateCubeLevel(size){
-        const blockCountRadius = 128;
+        const blockCountRadius = this.block_size_radius;
         for (let i = -blockCountRadius+0.5; i <= blockCountRadius-0.5; i++) {
             for (let j =  -blockCountRadius+0.5; j <= blockCountRadius-0.5; j++) {
                 if ( size > 1 && i > -blockCountRadius/2 && i < blockCountRadius/2 && j > -blockCountRadius/2 && j < blockCountRadius/2) continue;
                 const x = i*size;
                 const z = j*size;
-                this.cubes.push({x,z,y:Elevation(x,z)-size,size});
+                const id = this.GetCubeId(size,x,z);
+                this.cubes_index[id] = {id,x,z,y:Elevation(x,z)-size,size};
             }
         }
     }
+    GetCubes(){
+        return Object.values(this.cubes_index);
+    }
+    GetCubeId(size,x,z) {
+        return `${size}-${Math.round(x)}-${Math.round(z)}`;
+    }
     GenerateCubeLevels() {
-        for (const size of [1,2,4,8,16,32,64]) {
+        for (const size of this.cube_sizes) {
             this.GenerateCubeLevel(size);
         }
     }
     GenerateCubeColors() {
-        for (const cube of this.cubes) {
+        for (const cube of this.GetCubes()) {
             let finalColor = [0,0,0];
             let count = 0;
             for (let i = cube.x-cube.size/2+0.5; i <= cube.x+cube.size/2-0.5;i++) {
@@ -143,6 +157,28 @@ class CubeList {
             cube.color = MultiplyVector(finalColor,1/count);
         }
     }
+    RegenerateNearbyCubes(camera) {
+        const size = this.cube_sizes[1];
+        const radius = this.block_size_radius;
+        const radiusToDelete = (radius/2)*0.8;
+        const pos = camera.position;
+        const deletedCubes = [];
+        for (let i = -radius+0.5; i <= radius-0.5; i++) {
+            for (let j =  -radius+0.5; j <= radius-0.5; j++) {
+                const x = i*size+pos._x;
+                const z = j*size+pos._z;
+                const id = this.GetCubeId(size,x,z);
+                if (!(id in this.cubes_index)) continue;
+                const dist = CubeDistance(x,z,pos._x,pos._z);
+                if (dist > radiusToDelete) continue;
+                delete this.cubes_index[id];
+                deletedCubes.push(id);
+
+            }
+        } 
+        return deletedCubes;
+
+    }
 }
 const cubeList = new CubeList();
 function Generate() {
@@ -150,16 +186,18 @@ function Generate() {
     cubeList.GenerateCubeLevels();
     cubeList.GenerateCubeColors();
     console.timeEnd("Generating");
-    console.log("Generated",cubeList.cubes.length,"cubes");
+    console.log("Generated",cubeList.GetCubes().length,"cubes");
     
 }
 function Render() {
     console.time("Rendering");
-    for (const cube of cubeList.cubes) {
+    for (const cube of cubeList.GetCubes()) {
         cubeRenderer.RenderCube(cube)
     }
     console.timeEnd("Rendering");
 }
+
+
 
 function Sigmoid(x) {
     return 1 / (1 + Math.exp(-x));
@@ -206,6 +244,7 @@ class CubeRenderer {
     constructor() {
         this.meshTypeMap = {};
         this.boxCount = 0;
+        this.instances = {};
     }
     GetColor(color) {
         const faceColors = [];
@@ -218,7 +257,7 @@ class CubeRenderer {
         }
         return {colorCode,faceColors};
     }
-    RenderCube({color,size,width,height,depth,x,y,z}){
+    RenderCube({id,color,size,width,height,depth,x,y,z}){
         if (size) {
             width = size;
             height = size;
@@ -241,14 +280,20 @@ class CubeRenderer {
         instance.position.x = x;
         instance.position.y = y;
         instance.position.z = z;
+        this.instances[id] = instance;
         return instance;
+    }
+    DeleteCubes(cube_ids) {
+        for (const cube_id of cube_ids) {
+            this.instances[cube_id].dispose();
+            delete this.instances[cube_id];
+        }
     }
 }
 const cubeRenderer = new CubeRenderer();
 var boxration = 1;
 
 var canvas = document.getElementById("renderCanvas");
-
 var startRenderLoop = function (engine, canvas) {
     engine.runRenderLoop(function () {
         if (sceneToRender && sceneToRender.activeCamera) {
@@ -275,8 +320,18 @@ var createScene = function () {
     Generate();
     Render();
     scene.freezeActiveMeshes();
+    setInterval(() => {
+        const deletedCubeIds = cubeList.RegenerateNearbyCubes(camera);  
+        console.log(deletedCubeIds);
+        if (deletedCubeIds.length > 0) {
+            scene.unfreezeActiveMeshes();
+            cubeRenderer.DeleteCubes(deletedCubeIds);
+            scene.freezeActiveMeshes();
+        }
+    }, (1000));
     return scene;
 };
+
 window.initFunction = async function() {  
     var asyncEngineCreation = async function() {
         try {
@@ -291,6 +346,7 @@ window.initFunction = async function() {
     if (!engine) throw 'engine should not be null.';
     startRenderLoop(engine, canvas);
     window.scene = createScene();
+
 };
 initFunction().then(() => {sceneToRender = scene});
     // Resize
