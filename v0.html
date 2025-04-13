@@ -226,6 +226,7 @@ class CubeRenderer {
     }
     DeleteChunk(id) {
         for (const cube of this.chunks[id].cubes) {
+            // cube.instance.unfreezeWorldMatrix();
             cube.instance.dispose();
             this.nrendered--;
         }
@@ -251,6 +252,7 @@ class CubeRenderer {
                 };
                 cube.color = this.GenerateCubeColor(cube);
                 cube.instance = this.RenderCube(cube);
+                cube.instance.freezeWorldMatrix();
                 chunk.cubes.push(cube);
             }
         }
@@ -260,6 +262,7 @@ class CubeRenderer {
         const start = Date.now();
         // 20 ms per tick so hacky ahah
         // should be own thread
+        // scene.unfreezeActiveMeshes();
         main: while(Date.now()-start < 10) {
             for (const level of levels) {
                 if (this.chunksToRenderBuckets[level].length > 0 ) {
@@ -270,6 +273,7 @@ class CubeRenderer {
             }
             break;
         }
+        // scene.freezeActiveMeshes();
     }
     SaveChunkToRender(chunk) {
         this.chunksToRenderBuckets[chunk.level].push(chunk);
@@ -282,7 +286,6 @@ class CubeRenderer {
         if (newChunk.x == this.oldChunk.x && newChunk.z == this.oldChunk.z) {
             return;
         }
-        // scene.unfreezeActiveMeshes();
         const biggestLevel = levels[levels.length-1];
         for (const level of levels) {
             // Skip processing biggest level - it is not for rendering but instead a fill in
@@ -339,6 +342,7 @@ var createScene = function () {
     scene = new BABYLON.Scene(engine);
     scene.clearColor = new BABYLON.Color4(0.5, 0.8, 0.89, 1);
     camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 50,0), scene);
+    camera.setTarget(new BABYLON.Vector3(0,50,100));
     camera.maxZ = 50000;
     camera.speed = 0.3;
     camera.inverseRotationSpeed = 100;
