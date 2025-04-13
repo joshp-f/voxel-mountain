@@ -168,6 +168,8 @@ class CubeRenderer {
         this.boxCount = 0;
         this.oldChunk = {x:0,z:0};
         this.chunks = {};
+        this._rcountpermove = 0;
+        this.chunksToRender = [];
     }
     GenerateCubeColor(cube) {
         let finalColor = [0,0,0];
@@ -195,6 +197,7 @@ class CubeRenderer {
         return {colorCode,faceColors};
     }
     RenderCube({color,size,width,height,depth,x,y,z}){
+        this._rcountpermove++;
         if (size) {
             width = size;
             height = size;
@@ -225,7 +228,7 @@ class CubeRenderer {
         }
         delete this.chunks[id];
     }
-    CreateChunk(id,x,z,level) {
+    CreateChunk({id,x,z,level}) {
         const chunk = {
             level,
             cubes:[]
@@ -249,16 +252,27 @@ class CubeRenderer {
         }
         this.chunks[id] = chunk;
     }
+    RenderChunksPerformantly(){
+        const start = Date.now();
+        // 20 ms per tick so hacky ahah
+        // should be own thread
+        while (Date.now()-start < 50 && this.chunksToRender.length > 0) {
+            const event = this.chunksToRender.pop();
+            this.CreateChunk(event);
+        }
+    }
     OnMove(scene,camera) {
+        this._rcountpermove = 0;
         const oldChunk = this.oldChunk;
         const newChunk = {x:Math.round(camera.position._x/CHUNK_SIZE),z:Math.round(camera.position._z/CHUNK_SIZE)};
         if (newChunk.x == this.oldChunk.x && newChunk.z == this.oldChunk.z) {
             return;
         }
         // scene.unfreezeActiveMeshes();
-        const levels = [1,2,4,8];
+        const levels = [1,2,4,8,16,32];
+        const biggestLevel = levels[levels.length-1];
         for (const level of levels) {
-            const chunkRange = level*2;
+            const chunkRange = level*1;
             const oldChunks = [];
             for ( let x = oldChunk.x-chunkRange; x < oldChunk.x+chunkRange+1; x++) {
                 oldChunks.push({x,z:oldChunk.z-chunkRange});
@@ -283,7 +297,9 @@ class CubeRenderer {
                 const id = `${chunk.x}-${chunk.z}`;
                 if (id in this.chunks && this.chunks.level === level*2) continue;
                 if (id in this.chunks) this.DeleteChunk(id);
-                this.CreateChunk(id,chunk.x,chunk.z,level*2);
+                if (level < biggestLevel) {
+                    this.chunksToRender.push({id,x:chunk.x,z:chunk.z,level:level*2});
+                }
             }
             for (const chunk of newChunks) {
                 const dist = CubeDistance(chunk.x,chunk.z,oldChunk.x,oldChunk.z);
@@ -293,37 +309,38 @@ class CubeRenderer {
                 if (id in this.chunks) {
                     this.DeleteChunk(id);
                 }
-                this.CreateChunk(id,chunk.x,chunk.z,level);
+
+                this.chunksToRender.push({id,x:chunk.x,z:chunk.z,level});
             }
         }
         // scene.freezeActiveMeshes();
 
         this.oldChunk = newChunk;
+        this.RenderChunksPerformantly();
+        console.log(this._rcountpermove);
     }
 }
 const cubeRenderer = new CubeRenderer();
 var boxration = 1;
 
 var canvas = document.getElementById("renderCanvas");
-var startRenderLoop = function (engine, canvas) {
-    engine.runRenderLoop(function () {
-        if (sceneToRender && sceneToRender.activeCamera) {
-            sceneToRender.render();
-        }
-    });
-}
+
 var engine = null;
 var scene = null;
+var camera = null;
 var sceneToRender = null;
 var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
 var createScene = function () {
-    var scene = new BABYLON.Scene(engine);
+    scene = new BABYLON.Scene(engine);
     scene.clearColor = new BABYLON.Color4(0.5, 0.8, 0.89, 1);
-    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 500,0), scene);
+    camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 50,0), scene);
     camera.maxZ = 50000;
-    camera.speed = 10;
+    camera.speed = 0.3;
     camera.inverseRotationSpeed = 100;
     camera.attachControl(canvas, true);
+    scene.registerBeforeRender(function () {
+        camera.position.y = camera.position.y*0.8+(Elevation(camera.position.x,camera.position.z)+2)*0.2
+    });
     var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(0, -1, 0), scene);
     light.intensity = 0.9;
     light.groundColor = new BABYLON.Color3(1,1,1);
@@ -331,11 +348,16 @@ var createScene = function () {
     Generate();
     Render();
     // scene.freezeActiveMeshes();
-    setInterval(() => {
-        cubeRenderer.OnMove(scene,camera);
-    }, (100));
     return scene;
 };
+var startRenderLoop = function (engine, canvas) {
+    engine.runRenderLoop(function () {
+        if (sceneToRender && sceneToRender.activeCamera) {
+            sceneToRender.render();
+            cubeRenderer.OnMove(scene,camera);
+        }
+    });
+}
 
 window.initFunction = async function() {  
     var asyncEngineCreation = async function() {
