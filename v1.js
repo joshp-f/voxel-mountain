@@ -128,6 +128,20 @@ function dot(a, b) { // Make sure dot product function is defined
     return a.reduce((sum, v, i) => sum + v * b[i], 0);
 }
 
+function Elevation(x, z) {
+  const bigMtn2048Magnitude = (Math.max(0.5, noise.simplex2(x / 32768, z / 32768)) - 0.5) * 2;
+  const Mtn1024Magnitude = (Math.max(0.5, noise.simplex2(x / 16384, z / 16384)) - 0.5) * 2;
+  const smallMtn512Magnitude = (Math.max(0.5, noise.simplex2(x / 8192, z / 8192)) - 0.5) * 2;
+  const bigHill256Magnitude = (Math.max(0.5, noise.simplex2(x / 4096, z / 4096)) - 0.5) * 2;
+  const footHill128Magnitude = (Math.max(0.5, noise.simplex2(x / 2048, z / 2048)) - 0.5) * 2;
+  const hills64Presense = Math.max(0, noise.simplex2(x / 1024, z / 1024));
+  let hills64Magnitude = ((noise.simplex2(x / 256, z / 256) + 1) / 2) * hills64Presense * 2;
+  let height = hills64Magnitude * 64 + footHill128Magnitude * 256 + bigHill256Magnitude * 512 +
+               smallMtn512Magnitude * 1024 + Mtn1024Magnitude * 2048 + bigMtn2048Magnitude * 4096;
+  height *= 2;
+  if (height > 1000) height *= 1.5;
+  return height;
+}
 
 function lookAt(eye, center, up) {
     const f = normalize([center[0] - eye[0], center[1] - eye[1], center[2] - eye[2]]);
@@ -250,7 +264,7 @@ const voxels = [];
 const size = 1000; // Render area size (adjust as needed, 500x500 = 250k)
 for (let x = -size; x < size; x++) {
     for (let z = -size; z < size; z++) {
-        voxels.push({ x, y: 0, z, color: randomGreen() });
+        voxels.push({ x, y: Elevation(x,z), z, color: randomGreen() });
     }
 }
 const numInstances = voxels.length;
