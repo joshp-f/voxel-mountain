@@ -2,15 +2,14 @@
 <html>
     <head>
         <title>Babylon.js Voxel Terrain - Worker Optimized</title>
-
         <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
         <script src="https://cdn.babylonjs.com/babylon.js"></script>
         <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
         <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
         <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
-         <script src='perlin.js'></script>
-         <style> 
-                     html,
+        <script src='perlin.js'></script>
+        <style> 
+            html,
             body {
                 overflow: hidden;
                 width: 100%;
@@ -28,339 +27,310 @@
             #canvasZone {
                 width: 100%;
                 height: 100%;
+                position: relative; /* For positioning child elements */
+            }
+
+            /* New styles for coordinate display */
+            #coordsDisplay {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: rgba(0, 0, 0, 0.7);
+                color: #ffffff;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                pointer-events: none; /* Prevent interaction with the overlay */
             }
         </style>
     </head>
     <body>
-    <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
-    <script>
-        // --- Noise/Color/Helper functions (can potentially be removed if ONLY used in worker) ---
-        // Keep Elevation here for camera positioning, maybe GetBlockColor if needed elsewhere.
-        function Elevation(x,z) { /* ... Paste exact Elevation logic ... */
-           const bigMtn2048Magnitude = (Math.max(0.5,noise.simplex2(x/32768,z/32768))-0.5)*2;
-           const Mtn1024Magnitude = (Math.max(0.5,noise.simplex2(x/16384,z/16384))-0.5)*2;
-           const smallMtn512Magnitude = (Math.max(0.5,noise.simplex2(x/8192,z/8192))-0.5)*2;
-           const bigHill256Magnitude = (Math.max(0.5,noise.simplex2(x/4096,z/4096))-0.5)*2;
-           const footHill128Magnitude = (Math.max(0.5,noise.simplex2(x/2048,z/2048))-0.5)*2;
-           const hills64Presense = Math.max(0,noise.simplex2(x/1024,z/1024));
-           let hills64Magnitude = ((noise.simplex2(x/256,z/256)+1)/2)*hills64Presense*2;
-           return hills64Magnitude*64 +footHill128Magnitude*256 + bigHill256Magnitude*512+smallMtn512Magnitude*1024 + Mtn1024Magnitude*2048+bigMtn2048Magnitude*4096;
-        }
-        function CubeDistance(x1, y1, x2, y2) { /* ... Paste logic ... */ return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2)); }
-        // Other helpers if needed by main thread logic (like camera)
-
-        // --- Constants ---
-        let CHUNK_SIZE = 64;
-        const levels = [1, 2, 4, 8, 16, 32, 64];
-        const lodRanges = { 1: 1, 2: 2, 4: 4, 8: 8, 16: 16, 32: 32,64:64};
-
-
-        // --- MODIFIED CubeRenderer using Web Worker ---
-        class CubeRenderer {
-            constructor(scene, material) {
-                this.scene = scene;
-                this.material = material;
-                this.chunks = {}; // Stores chunk data { level: number, mesh: Mesh | null }
-                this.oldChunk = { x: NaN, z: NaN }; // Use NaN to force initial load
-                this.generationQueue = new Set(); // Tracks IDs of chunks requested from worker
-                this.nrendered = 0; // Tracks number of chunk meshes in scene
-
-                // --- Initialize Worker ---
-                this.worker = new Worker('terrainWorker.js');
-                this.worker.onmessage = this.handleWorkerMessage.bind(this);
-                this.worker.onerror = (error) => {
-                    console.error("Received error from worker:", error);
-                };
-                console.log("Worker initialized by main thread.");
+        <div id="canvasZone">
+            <canvas id="renderCanvas"></canvas>
+            <!-- New div for coordinates -->
+            <div id="coordsDisplay">X: 0, Y: 0, Z: 0</div>
+        </div>
+        <script>
+            // --- Noise/Color/Helper functions (unchanged) ---
+            function Elevation(x, z) {
+                const bigMtn2048Magnitude = (Math.max(0.5, noise.simplex2(x/32768, z/32768)) - 0.5) * 2;
+                const Mtn1024Magnitude = (Math.max(0.5, noise.simplex2(x/16384, z/16384)) - 0.5) * 2;
+                const smallMtn512Magnitude = (Math.max(0.5, noise.simplex2(x/8192, z/8192)) - 0.5) * 2;
+                const bigHill256Magnitude = (Math.max(0.5, noise.simplex2(x/4096, z/4096)) - 0.5) * 2;
+                const footHill128Magnitude = (Math.max(0.5, noise.simplex2(x/2048, z/2048)) - 0.5) * 2;
+                const hills64Presense = Math.max(0, noise.simplex2(x/1024, z/1024));
+                let hills64Magnitude = ((noise.simplex2(x/256, z/256) + 1) / 2) * hills64Presense * 2;
+                return hills64Magnitude * 64 + footHill128Magnitude * 256 + bigHill256Magnitude * 512 +
+                       smallMtn512Magnitude * 1024 + Mtn1024Magnitude * 2048 + bigMtn2048Magnitude * 4096;
+            }
+            function CubeDistance(x1, y1, x2, y2) {
+                return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2));
             }
 
-            // Handles messages received from the worker thread
-            handleWorkerMessage(e) {
-                const data = e.data;
-                 // console.log(`Main thread received message type: ${data.type} for id: ${data.id}`);
+            // --- Constants (unchanged) ---
+            let CHUNK_SIZE = 64;
+            const levels = [1, 2, 4, 8, 16, 32, 64];
+            const lodRanges = { 1: 1, 2: 2, 4: 4, 8: 8, 16: 16, 32: 32, 64: 64 };
 
-                // Remove from queue regardless of result type
-                 this.generationQueue.delete(data.id);
+            // --- CubeRenderer class (unchanged) ---
+            class CubeRenderer {
+                constructor(scene, material) {
+                    this.scene = scene;
+                    this.material = material;
+                    this.chunks = {};
+                    this.oldChunk = { x: NaN, z: NaN };
+                    this.generationQueue = new Set();
+                    this.nrendered = 0;
 
-                if (data.type === 'geometry') {
-                    // --- Create Mesh from received geometry data ---
+                    this.worker = new Worker('terrainWorker.js');
+                    this.worker.onmessage = this.handleWorkerMessage.bind(this);
+                    this.worker.onerror = (error) => {
+                        console.error("Received error from worker:", error);
+                    };
+                    console.log("Worker initialized by main thread.");
+                }
 
-                    // Check if a chunk with this ID still exists or if it was deleted
-                    // or if a different LOD level was created in the meantime
-                    const existingChunk = this.chunks[data.id];
-                    if (existingChunk && existingChunk.level !== data.level) {
-                         console.log(`Received L${data.level} for ${data.id}, but L${existingChunk.level} exists. Discarding.`);
-                        // Potentially need more robust handling if levels can change rapidly
+                handleWorkerMessage(e) {
+                    const data = e.data;
+                    this.generationQueue.delete(data.id);
+
+                    if (data.type === 'geometry') {
+                        const existingChunk = this.chunks[data.id];
+                        if (existingChunk && existingChunk.level !== data.level) {
+                            console.log(`Received L${data.level} for ${data.id}, but L${existingChunk.level} exists. Discarding.`);
+                            return;
+                        }
+                        if (existingChunk && existingChunk.mesh) {
+                            console.log(`Received geometry for ${data.id} but mesh already exists. Discarding.`);
+                            return;
+                        }
+
+                        const mesh = new BABYLON.Mesh(`chunk_${data.id}_L${data.level}`, this.scene);
+                        const vertexData = new BABYLON.VertexData();
+                        vertexData.positions = new Float32Array(data.positions);
+                        vertexData.indices = new Uint32Array(data.indices);
+                        vertexData.normals = new Float32Array(data.normals);
+                        vertexData.colors = new Float32Array(data.colors);
+                        vertexData.applyToMesh(mesh, true);
+                        mesh.material = this.material;
+                        mesh.checkCollisions = true;
+
+                        this.chunks[data.id] = { level: data.level, mesh: mesh };
+                        this.nrendered++;
+                    } else if (data.type === 'empty') {
+                        this.chunks[data.id] = { level: data.level, mesh: null };
+                    } else if (data.type === 'error') {
+                        console.error(`Worker reported error: ${data.message}`);
+                    }
+                }
+
+                RequestChunkGeneration(id, x, z, level) {
+                    if (!this.generationQueue.has(id)) {
+                        if (this.chunks[id]?.level === level && this.chunks[id]?.mesh) {
+                            return;
+                        }
+                        if (this.chunks[id]?.mesh) {
+                            this.DeleteChunk(id);
+                        }
+                        this.generationQueue.add(id);
+                        this.worker.postMessage({ id, x, z, level });
+                    }
+                }
+
+                DeleteChunk(id) {
+                    const chunk = this.chunks[id];
+                    if (chunk && chunk.mesh) {
+                        chunk.mesh.dispose();
+                        this.nrendered--;
+                    }
+                    if (this.generationQueue.has(id)) {
+                        this.generationQueue.delete(id);
+                    }
+                    delete this.chunks[id];
+                }
+
+                OnMove(camera) {
+                    const camX = camera.position.x;
+                    const camZ = camera.position.z;
+                    const newChunkX = Math.round(camX / CHUNK_SIZE);
+                    const newChunkZ = Math.round(camZ / CHUNK_SIZE);
+
+                    if (newChunkX === this.oldChunk.x && newChunkZ === this.oldChunk.z) {
                         return;
                     }
-                     if (existingChunk && existingChunk.mesh) {
-                         console.log(`Received geometry for ${data.id} but mesh already exists. Discarding.`);
-                         return; // Avoid creating duplicates
-                     }
 
+                    this.oldChunk = { x: newChunkX, z: newChunkZ };
+                    const maxRange = lodRanges[levels[levels.length - 1]];
+                    const checkedChunks = new Set();
 
-                    const mesh = new BABYLON.Mesh(`chunk_${data.id}_L${data.level}`, this.scene);
-                    const vertexData = new BABYLON.VertexData();
+                    for (let dx = -maxRange; dx <= maxRange; dx++) {
+                        for (let dz = -maxRange; dz <= maxRange; dz++) {
+                            const checkX = newChunkX + dx;
+                            const checkZ = newChunkZ + dz;
+                            const id = `${checkX}-${checkZ}`;
+                            const dist = CubeDistance(checkX, checkZ, newChunkX, newChunkZ);
 
-                    // Reconstruct arrays from ArrayBuffers
-                    vertexData.positions = new Float32Array(data.positions);
-                    vertexData.indices = new Uint32Array(data.indices);
-                    vertexData.normals = new Float32Array(data.normals);
-                    vertexData.colors = new Float32Array(data.colors);
+                            let targetLevel = levels[levels.length - 1];
+                            for (const level of levels) {
+                                if (dist <= lodRanges[level]) { targetLevel = level; break; }
+                            }
 
-                    vertexData.applyToMesh(mesh, true); // true = updatable (optional)
-                    mesh.material = this.material;
-                    // mesh.freezeWorldMatrix(); // Freeze after creation
+                            const currentChunk = this.chunks[id];
+                            const isGenerating = this.generationQueue.has(id);
+                            checkedChunks.add(id);
 
-                     // Enable collisions if needed (might require more detailed physics setup)
-                     mesh.checkCollisions = true;
-
-                    // Store the new mesh
-                    this.chunks[data.id] = { level: data.level, mesh: mesh };
-                    this.nrendered++;
-                    // console.log(`Mesh created for ${data.id} L${data.level}. Rendered: ${this.nrendered}`);
-
-                } else if (data.type === 'empty') {
-                     // Handle empty chunks if necessary (e.g., store placeholder)
-                     // console.log(`Chunk ${data.id} L${data.level} is empty.`);
-                     this.chunks[data.id] = { level: data.level, mesh: null }; // Store null mesh for empty chunks
-                } else if (data.type === 'error') {
-                    console.error(`Worker reported error: ${data.message}`);
-                }
-            }
-
-            // Requests chunk generation from the worker
-            RequestChunkGeneration(id, x, z, level) {
-                 if (!this.generationQueue.has(id)) {
-                    // Basic check: Don't request if chunk already exists at the correct level
-                     if (this.chunks[id]?.level === level && this.chunks[id]?.mesh) {
-                         // console.log(`Skipping request for existing chunk ${id} L${level}`);
-                         return;
-                     }
-                     // Delete previous LOD if it exists before requesting new one
-                     if (this.chunks[id]?.mesh) {
-                         this.DeleteChunk(id);
-                     }
-
-
-                    // console.log(`Requesting chunk ${id} L${level} from worker.`);
-                    this.generationQueue.add(id);
-                    this.worker.postMessage({ id, x, z, level });
-                } else {
-                    // console.log(`Chunk ${id} L${level} already in generation queue.`);
-                }
-            }
-
-            // Deletes a chunk mesh from the scene
-            DeleteChunk(id) {
-                const chunk = this.chunks[id];
-                if (chunk && chunk.mesh) {
-                    chunk.mesh.dispose();
-                    this.nrendered--;
-                     // console.log(`Disposed chunk ${id}, rendered: ${this.nrendered}`);
-                }
-                 // Also remove from generation queue if it's pending
-                 if (this.generationQueue.has(id)) {
-                     this.generationQueue.delete(id);
-                     // NOTE: We can't easily *cancel* the worker task once sent.
-                     // The worker will still compute it, but the main thread will ignore the result
-                     // in handleWorkerMessage if the chunk no longer exists or has a different level.
-                     // console.log(`Removed ${id} from generation queue during deletion.`);
-                 }
-                delete this.chunks[id];
-            }
-
-            // --- OnMove: Determines needed chunks and requests them ---
-            OnMove(camera) {
-                const camX = camera.position.x;
-                const camZ = camera.position.z;
-                const newChunkX = Math.round(camX / CHUNK_SIZE);
-                const newChunkZ = Math.round(camZ / CHUNK_SIZE);
-
-                if (newChunkX === this.oldChunk.x && newChunkZ === this.oldChunk.z) {
-                    return; // No chunk change
-                }
-
-                const oldChunkPos = { ...this.oldChunk };
-                this.oldChunk = { x: newChunkX, z: newChunkZ };
-
-                // LOD Ranges (adjust as needed)
-                const maxRange = lodRanges[levels[levels.length - 1]];
-                const checkedChunks = new Set(); // Avoid redundant checks per update cycle
-
-                // Iterate possible chunks around the player
-                for (let dx = -maxRange; dx <= maxRange; dx++) {
-                    for (let dz = -maxRange; dz <= maxRange; dz++) {
-                        const checkX = newChunkX + dx;
-                        const checkZ = newChunkZ + dz;
-                        const id = `${checkX}-${checkZ}`;
-                        const dist = CubeDistance(checkX, checkZ, newChunkX, newChunkZ);
-
-                        // Determine target LOD
-                        let targetLevel = levels[levels.length - 1];
-                        for (const level of levels) {
-                            if (dist <= lodRanges[level]) { targetLevel = level; break; }
-                        }
-
-                        const currentChunk = this.chunks[id];
-                        const isGenerating = this.generationQueue.has(id);
-
-                         checkedChunks.add(id); // Mark as checked
-
-                        if (currentChunk) { // Chunk exists (or is null for empty)
-                            if (currentChunk.level !== targetLevel && !isGenerating) {
-                                // Level mismatch, request new level (old mesh deleted in RequestChunkGeneration)
-                                // console.log(`Chunk ${id}: Level mismatch (is ${currentChunk.level}, need ${targetLevel}). Requesting.`);
+                            if (currentChunk) {
+                                if (currentChunk.level !== targetLevel && !isGenerating) {
+                                    this.RequestChunkGeneration(id, checkX, checkZ, targetLevel);
+                                }
+                            } else if (!isGenerating) {
                                 this.RequestChunkGeneration(id, checkX, checkZ, targetLevel);
                             }
-                             // else: Correct level exists or is generating, do nothing
-                        } else if (!isGenerating) {
-                             // Chunk doesn't exist and isn't generating, request it
-                             // console.log(`Chunk ${id}: Not found, not generating. Requesting L${targetLevel}.`);
-                            this.RequestChunkGeneration(id, checkX, checkZ, targetLevel);
                         }
-                         // else: Not found, but IS generating, do nothing, wait for worker.
                     }
+
+                    const chunksToDelete = [];
+                    for (const id in this.chunks) {
+                        if (checkedChunks.has(id)) continue;
+                        const parts = id.split('-');
+                        if (parts.length !== 2) continue;
+                        const chunkX = parseInt(parts[0], 10);
+                        const chunkZ = parseInt(parts[1], 10);
+                        if (isNaN(chunkX) || isNaN(chunkZ)) continue;
+                        const dist = CubeDistance(chunkX, chunkZ, newChunkX, newChunkZ);
+                        if (dist > maxRange + 2) {
+                            chunksToDelete.push(id);
+                        }
+                    }
+                    chunksToDelete.forEach(id => this.DeleteChunk(id));
                 }
 
-                // --- Clean up distant chunks ---
-                const chunksToDelete = [];
-                for (const id in this.chunks) {
-                     if (checkedChunks.has(id)) continue; // Don't delete recently checked chunks
-
-                     const parts = id.split('-');
-                     if (parts.length !== 2) continue; // Skip invalid IDs
-                     const chunkX = parseInt(parts[0], 10);
-                     const chunkZ = parseInt(parts[1], 10);
-                     if (isNaN(chunkX) || isNaN(chunkZ)) continue; // Skip invalid IDs
-
-                    const dist = CubeDistance(chunkX, chunkZ, newChunkX, newChunkZ);
-
-                    if (dist > maxRange + 2) { // Delete chunks outside view range + buffer
-                        chunksToDelete.push(id);
+                dispose() {
+                    if (this.worker) {
+                        this.worker.terminate();
+                        console.log("Terrain worker terminated.");
+                    }
+                    for (const id in this.chunks) {
+                        this.DeleteChunk(id);
                     }
                 }
-                chunksToDelete.forEach(id => {
-                    // console.log(`Deleting distant chunk ${id}`);
-                    this.DeleteChunk(id);
+            }
+
+            // --- Global Variables ---
+            var canvas = document.getElementById("renderCanvas");
+            var engine = null;
+            var scene = null;
+            var camera = null;
+            var sceneToRender = null;
+            var cubeRenderer = null;
+            var chunkMaterial = null;
+
+            var createDefaultEngine = function() {
+                return new BABYLON.Engine(canvas, true, {
+                    preserveDrawingBuffer: true,
+                    stencil: true,
+                    disableWebGL2Support: false
                 });
-            }
+            };
 
-             // Clean up worker when done
-             dispose() {
-                 if (this.worker) {
-                     this.worker.terminate();
-                     console.log("Terrain worker terminated.");
-                 }
-                 // Dispose all remaining chunk meshes
-                 for (const id in this.chunks) {
-                     this.DeleteChunk(id);
-                 }
-             }
-        }
+            // --- Scene Creation ---
+            var createScene = function () {
+                scene = new BABYLON.Scene(engine);
+                scene.clearColor = new BABYLON.Color4(0.5, 0.8, 0.89, 1);
 
-        // --- Global Variables ---
-        var canvas = document.getElementById("renderCanvas");
-        var engine = null;
-        var scene = null;
-        var camera = null;
-        var sceneToRender = null;
-        var cubeRenderer = null;
-        var chunkMaterial = null;
+                camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 150, 0), scene);
+                camera.setTarget(new BABYLON.Vector3(0, 140, 100));
+                camera.maxZ = CHUNK_SIZE * lodRanges[levels[levels.length - 1]] * 2;
+                camera.minZ = 0.5;
+                camera.speed = 2.0;
+                camera.angularSensibility = 5000;
+                camera.attachControl(canvas, true);
 
-        var createDefaultEngine = function() { /* ... */ return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+                chunkMaterial = new BABYLON.StandardMaterial("chunkMat", scene);
+                chunkMaterial.useVertexColors = true;
+                chunkMaterial.freeze();
 
-        // --- Scene Creation ---
-        var createScene = function () {
-            scene = new BABYLON.Scene(engine);
-            scene.clearColor = new BABYLON.Color4(0.5, 0.8, 0.89, 1);
+                scene.gravity = new BABYLON.Vector3(0, -0.9, 0);
+                camera.applyGravity = true;
+                camera.ellipsoid = new BABYLON.Vector3(0.5, 1.0, 0.5);
+                scene.collisionsEnabled = true;
+                camera.checkCollisions = true;
 
-            // --- Camera Setup ---
-            camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 150, 0), scene);
-            camera.setTarget(new BABYLON.Vector3(0, 140, 100));
-            camera.maxZ = CHUNK_SIZE * lodRanges[levels[levels.length-1]]*2;
-            camera.minZ = 0.5;
-            camera.speed = 2.0;
-            camera.angularSensibility = 5000;
-            camera.attachControl(canvas, true);
+                var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(0.5, 1, 0.25), scene);
+                light.intensity = 0.9;
+                light.groundColor = new BABYLON.Color3(0.4, 0.4, 0.5);
+                light.specular = BABYLON.Color3.Black();
 
-            // --- Material ---
-            chunkMaterial = new BABYLON.StandardMaterial("chunkMat", scene);
-            chunkMaterial.useVertexColors = true;
-            chunkMaterial.freeze(); // Freeze material properties
+                cubeRenderer = new CubeRenderer(scene, chunkMaterial);
 
-             // --- Basic Gravity & Collision ---
-            scene.gravity = new BABYLON.Vector3(0, -0.9, 0);
-            camera.applyGravity = true;
-            camera.ellipsoid = new BABYLON.Vector3(0.5, 1.0, 0.5); // Player collision capsule
-            scene.collisionsEnabled = true; // Enable collision system
-            camera.checkCollisions = true;  // Make camera collide
+                // --- Updated BeforeRender to Include Coordinates ---
+                scene.registerBeforeRender(function () {
+                    let groundY = Elevation(camera.position.x, camera.position.z);
+                    let heightAboveGround = 2.0;
+                    let targetCameraY = groundY + heightAboveGround;
 
-            // --- Light ---
-            var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(0.5, 1, 0.25), scene);
-            light.intensity = 0.9;
-            light.groundColor = new BABYLON.Color3(0.4, 0.4, 0.5);
-            light.specular = BABYLON.Color3.Black();
+                    if (!camera.applyGravity) {
+                        camera.position.y = BABYLON.Scalar.Lerp(camera.position.y, targetCameraY, 0.1);
+                    }
 
-            // --- Initialize the CubeRenderer (AFTER scene and material exist) ---
-            cubeRenderer = new CubeRenderer(scene, chunkMaterial);
+                    // Update coordinates display
+                    const coordsDisplay = document.getElementById("coordsDisplay");
+                    if (coordsDisplay) {
+                        const x = camera.position.x.toFixed(1);
+                        const y = camera.position.y.toFixed(1);
+                        const z = camera.position.z.toFixed(1);
+                        coordsDisplay.textContent = `X: ${x}, Y: ${y}, Z: ${z}`;
+                    }
+                });
 
-             // --- Camera Height Adjustment ---
-            scene.registerBeforeRender(function () {
-                let groundY = Elevation(camera.position.x, camera.position.z); // Still need Elevation on main thread
-                let heightAboveGround = 2.0;
-                let targetCameraY = groundY + heightAboveGround;
-                // Smooth camera height adjustment (optional)
-                // camera.position.y = BABYLON.Scalar.Lerp(camera.position.y, targetCameraY, 0.1);
+                cubeRenderer.OnMove(camera);
+                return scene;
+            };
 
-                // NOTE: Collision with the merged chunk meshes (mesh.checkCollisions = true)
-                // should handle keeping the camera above ground if gravity is applied.
-                // The manual height adjustment might interfere or be redundant. Test this.
-                 if (!camera.applyGravity) { // Only lerp if not using engine gravity/collisions
-                      camera.position.y = BABYLON.Scalar.Lerp(camera.position.y, targetCameraY, 0.1);
-                 }
+            // --- Render Loop (unchanged) ---
+            var startRenderLoop = function (engine, canvas) {
+                engine.runRenderLoop(function () {
+                    if (sceneToRender && sceneToRender.activeCamera) {
+                        sceneToRender.render();
+                    }
+                });
+            };
 
+            // --- Initialization (unchanged) ---
+            window.initFunction = async function() {
+                var asyncEngineCreation = async function() {
+                    try {
+                        return createDefaultEngine();
+                    } catch(e) {
+                        console.error("engine creation failed", e);
+                        return createDefaultEngine();
+                    }
+                };
+                window.engine = await asyncEngineCreation();
+                if (!engine) throw 'engine should not be null.';
+                startRenderLoop(engine, canvas);
+                window.scene = createScene();
+
+                setInterval(() => {
+                    if (cubeRenderer && camera) {
+                        cubeRenderer.OnMove(camera);
+                    }
+                }, 100);
+            };
+
+            initFunction().then(() => { sceneToRender = scene });
+
+            window.addEventListener("resize", function () {
+                if (engine) { engine.resize(); }
             });
+            engine.resize();
 
-            // --- Initial chunk load trigger ---
-            // Set oldChunk position to something invalid to force initial load in OnMove
-            // cubeRenderer.oldChunk = { x: NaN, z: NaN }; // Done in constructor now
-            cubeRenderer.OnMove(camera); // Trigger initial check
-
-            return scene;
-        };
-
-        // --- Render Loop ---
-        var startRenderLoop = function (engine, canvas) { /* ... */ engine.runRenderLoop(function () { if (sceneToRender && sceneToRender.activeCamera) { sceneToRender.render(); } }); }
-
-        // --- Initialization ---
-        window.initFunction = async function() { /* ... */
-             var asyncEngineCreation = async function() { try { return createDefaultEngine(); } catch(e) { console.error("engine creation failed", e); return createDefaultEngine(); } }
-             window.engine = await asyncEngineCreation();
-             if (!engine) throw 'engine should not be null.';
-             startRenderLoop(engine, canvas);
-             window.scene = createScene();
-
-             // --- Movement/LOD Check Interval ---
-             // Use setInterval for simplicity, could use requestAnimationFrame for tighter integration
-             setInterval(() => {
-                 if (cubeRenderer && camera) {
-                     cubeRenderer.OnMove(camera);
-                 }
-             }, 100); // Check every 100ms (adjust as needed)
-        };
-
-        initFunction().then(() => {sceneToRender = scene});
-            // Resize
-        window.addEventListener("resize", function () { /* ... */ if (engine) { engine.resize(); } });
-        engine.resize();
-        // Cleanup worker on page unload
-        window.addEventListener("unload", function() {
-            if (cubeRenderer) {
-                cubeRenderer.dispose();
-            }
-        });
-
+            window.addEventListener("unload", function() {
+                if (cubeRenderer) {
+                    cubeRenderer.dispose();
+                }
+            });
         </script>
     </body>
 </html>
