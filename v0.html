@@ -57,7 +57,7 @@ Only scale color in one dir
 */
 
 function Elevation(x,z) {
-    return 0;
+    // return 0;
     const bigMtn2048Magnitude = (Math.max(0.5,noise.simplex2(x/32768,z/32768))-0.5)*2;
     const Mtn1024Magnitude = (Math.max(0.5,noise.simplex2(x/16384,z/16384))-0.5)*2;
     const smallMtn512Magnitude = (Math.max(0.5,noise.simplex2(x/8192,z/8192))-0.5)*2;
@@ -161,7 +161,7 @@ const faceColorModifiers = [
 function getBaseLog(x, y) {
     return Math.log(y) / Math.log(x);
 }
-let CHUNK_SIZE = 16;
+let CHUNK_SIZE = 32;
 class CubeRenderer {
     constructor() {
         this.meshTypeMap = {};
@@ -250,15 +250,25 @@ class CubeRenderer {
         this.chunks[id] = chunk;
     }
     OnMove(scene,camera) {
+        const oldChunk = this.oldChunk;
         const newChunk = {x:Math.round(camera.position._x/CHUNK_SIZE),z:Math.round(camera.position._z/CHUNK_SIZE)};
         if (newChunk.x == this.oldChunk.x && newChunk.z == this.oldChunk.z) {
             return;
         }
         // scene.unfreezeActiveMeshes();
-        const levels = [1];
+        const levels = [1,2,4,8];
         for (const level of levels) {
+            const chunkRange = level*2;
+            const oldChunks = [];
+            for ( let x = oldChunk.x-chunkRange; x < oldChunk.x+chunkRange+1; x++) {
+                oldChunks.push({x,z:oldChunk.z-chunkRange});
+                oldChunks.push({x,z:oldChunk.z+chunkRange});
+            }
+            for ( let z = newChunk.z-chunkRange; z < newChunk.z+chunkRange+1; z++) {
+                oldChunks.push({x:oldChunk.x-chunkRange,z});
+                oldChunks.push({x:oldChunk.x+chunkRange,z});
+            }
             const newChunks = [];
-            const chunkRange = levels*2;
             for ( let x = newChunk.x-chunkRange; x < newChunk.x+chunkRange+1; x++) {
                 newChunks.push({x,z:newChunk.z-chunkRange});
                 newChunks.push({x,z:newChunk.z+chunkRange});
@@ -267,7 +277,17 @@ class CubeRenderer {
                 newChunks.push({x:newChunk.x-chunkRange,z});
                 newChunks.push({x:newChunk.x+chunkRange,z});
             }
+            for (const chunk of oldChunks) {
+                const dist = CubeDistance(chunk.x,chunk.z,newChunk.x,newChunk.z);
+                if (dist <= chunkRange) continue;
+                const id = `${chunk.x}-${chunk.z}`;
+                if (id in this.chunks && this.chunks.level === level*2) continue;
+                if (id in this.chunks) this.DeleteChunk(id);
+                this.CreateChunk(id,chunk.x,chunk.z,level*2);
+            }
             for (const chunk of newChunks) {
+                const dist = CubeDistance(chunk.x,chunk.z,oldChunk.x,oldChunk.z);
+                if (dist <= chunkRange) continue;
                 const id = `${chunk.x}-${chunk.z}`;
                 if (id in this.chunks && this.chunks.level === level) continue;
                 if (id in this.chunks) {
@@ -299,7 +319,7 @@ var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, {
 var createScene = function () {
     var scene = new BABYLON.Scene(engine);
     scene.clearColor = new BABYLON.Color4(0.5, 0.8, 0.89, 1);
-    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(1000, 500,1000), scene);
+    var camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 500,0), scene);
     camera.maxZ = 50000;
     camera.speed = 10;
     camera.inverseRotationSpeed = 100;
