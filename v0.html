@@ -226,7 +226,6 @@ class CubeRenderer {
     }
     DeleteChunk(id) {
         for (const cube of this.chunks[id].cubes) {
-            // cube.instance.unfreezeWorldMatrix();
             cube.instance.dispose();
             this.nrendered--;
         }
@@ -252,7 +251,8 @@ class CubeRenderer {
                 };
                 cube.color = this.GenerateCubeColor(cube);
                 cube.instance = this.RenderCube(cube);
-                cube.instance.freezeWorldMatrix();
+                // cube.instance.freezeWorldMatrix();
+                // cube.instance._freeze();
                 chunk.cubes.push(cube);
             }
         }
@@ -260,10 +260,10 @@ class CubeRenderer {
     }
     RenderChunksPerformantly(){
         const start = Date.now();
-        // 20 ms per tick so hacky ahah
+        // 10 ms per tick so hacky ahah
         // should be own thread
         // scene.unfreezeActiveMeshes();
-        main: while(Date.now()-start < 10) {
+        main: while(Date.now()-start < 1) {
             for (const level of levels) {
                 if (this.chunksToRenderBuckets[level].length > 0 ) {
                     const event = this.chunksToRenderBuckets[level].pop();
@@ -273,7 +273,6 @@ class CubeRenderer {
             }
             break;
         }
-        // scene.freezeActiveMeshes();
     }
     SaveChunkToRender(chunk) {
         this.chunksToRenderBuckets[chunk.level].push(chunk);
@@ -324,7 +323,6 @@ class CubeRenderer {
                 this.SaveChunkToRender({id,x:chunk.x,z:chunk.z,level});
             }
         }
-        // scene.freezeActiveMeshes();
         this.oldChunk = newChunk;
     }
 }
@@ -356,7 +354,7 @@ var createScene = function () {
     light.specular = BABYLON.Color3.Black();
     Generate();
     Render();
-    // scene.freezeActiveMeshes();
+    scene.freezeActiveMeshes();
     return scene;
 };
 var startRenderLoop = function (engine, canvas) {
