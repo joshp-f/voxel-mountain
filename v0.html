@@ -51,7 +51,9 @@
 
         // --- Constants ---
         let CHUNK_SIZE = 64;
-        const levels = [1, 2, 4, 8, 16, 32, 64, 128];
+        const levels = [1, 2, 4, 8, 16, 32, 64];
+        const lodRanges = { 1: 1, 2: 2, 4: 4, 8: 8, 16: 16, 32: 32,64:64};
+
 
         // --- MODIFIED CubeRenderer using Web Worker ---
         class CubeRenderer {
@@ -137,7 +139,6 @@
                      }
                      // Delete previous LOD if it exists before requesting new one
                      if (this.chunks[id]?.mesh) {
-                         console.log(`Deleting old mesh for ${id} L${this.chunks[id]?.level} before requesting L${level}`);
                          this.DeleteChunk(id);
                      }
 
@@ -184,7 +185,6 @@
                 this.oldChunk = { x: newChunkX, z: newChunkZ };
 
                 // LOD Ranges (adjust as needed)
-                const lodRanges = { 1: 2, 2: 3, 4: 4, 8: 5, 16: 6, 32: 8, 64: 10, 128: 12 };
                 const maxRange = lodRanges[levels[levels.length - 1]];
                 const checkedChunks = new Set(); // Avoid redundant checks per update cycle
 
@@ -278,7 +278,7 @@
             // --- Camera Setup ---
             camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 150, 0), scene);
             camera.setTarget(new BABYLON.Vector3(0, 140, 100));
-            camera.maxZ = CHUNK_SIZE * 20;
+            camera.maxZ = CHUNK_SIZE * lodRanges[levels[levels.length-1]]*2;
             camera.minZ = 0.5;
             camera.speed = 2.0;
             camera.angularSensibility = 5000;
