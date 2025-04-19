@@ -43,7 +43,7 @@ void main() {
 }
 `;
 
-let cameraPos = [0, 2, 5];
+let cameraPos = [0, 200, 5];
 let cameraFront = [0, 0, -1];
 let cameraUp = [0, 1, 0];
 
@@ -132,8 +132,6 @@ function Elevation(x, z) {
   let hills64Magnitude = ((noise.simplex2(x / 256, z / 256) + 1) / 2) * hills64Presense * 2;
   let height = hills64Magnitude * 64 + footHill128Magnitude * 256 + bigHill256Magnitude * 512 +
                smallMtn512Magnitude * 1024 + Mtn1024Magnitude * 2048 + bigMtn2048Magnitude * 4096;
-  height *= 2;
-  if (height > 1000) height *= 1.5;
   return height;
 }
 
@@ -234,10 +232,20 @@ gl.enableVertexAttribArray(aPosition);
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
 
-function randomGreen() {
-    const min = [0.2, 0.5, 0.2];
-    const max = [0.4, 1.0, 0.4];
-    return min.map((v, i) => v + Math.random() * (max[i] - v));
+
+const skyColor = [0.53, 0.81, 0.98];
+function getColor(x,z) {
+    const dist = cubeDist(x,z);
+    const green = [0.3,0.75,0.3];
+    const greenVariance = 0.33;
+    const varianceDropedOff = greenVariance*(1/(dist/1000+1));
+    // const varianceDropoff = 
+
+    const color = green.map((v, i) => v *(1+ (Math.random()-0.5)*varianceDropedOff));
+    // 50% fog per 40km
+    const nonFog = 1/(dist/40000+1);
+    let foggedColor = color.map((c,i) => skyColor[i]*(1-nonFog)+c*nonFog );
+    return foggedColor;
 }
 
 function cubeDist(x,z) {
@@ -245,14 +253,16 @@ function cubeDist(x,z) {
 }
 
 const voxels = [];
-const size = 500;
+const size = 700;
+const maxDist = 2**(size/100)*size;
+console.log('MaxDist',maxDist);
 for (let x = -size; x < size; x++) {
     for (let z = -size; z < size; z++) {
         const dist = cubeDist(x,z);
-        const distMult = 2**(Math.floor(dist/100));
+        const distMult = 2**(dist/100);
         const realX = x*distMult;
         const realZ = z*distMult;
-        voxels.push({ x:realX, y: Elevation(realX,realZ), z:realZ, color: randomGreen(), scale: distMult });
+        voxels.push({ x:realX, y: Elevation(realX,realZ), z:realZ, color: getColor(realX,realZ), scale: distMult });
     }
 }
 const numInstances = voxels.length;
@@ -309,8 +319,8 @@ const uProjection = gl.getUniformLocation(program, "uProjection");
 const uView = gl.getUniformLocation(program, "uView");
 
 const aspect = canvas.width / canvas.height;
-// Far needs to be 50KM
-const projMatrix = perspective(Math.PI / 3, aspect, 0.1, 50000);
+// Far needs to be 100KM
+const projMatrix = perspective(Math.PI / 3, aspect, 0.1, 10000000);
 gl.uniformMatrix4fv(uProjection, false, projMatrix);
 
 let lastTime = 0;
@@ -323,8 +333,7 @@ function draw(now = 0) {
     const center = add(cameraPos, cameraFront);
     const viewMatrix = lookAt(cameraPos, center, cameraUp);
     gl.uniformMatrix4fv(uView, false, viewMatrix);
-
-    gl.clearColor(0.1, 0.1, 0.1, 1);
+    gl.clearColor( ...skyColor,1.0); // Sky blue
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.viewport(0, 0, canvas.width, canvas.height);
