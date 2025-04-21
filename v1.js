@@ -236,12 +236,20 @@ const greenFaces = [
 function getColor(x, z,faceIndex) {
     const dist = cubeDist(x, z);
     const green = greenFaces[faceIndex];
-    const greenVariance = 0.33;
+    const greenVariance = 0.77;
     const varianceDropedOff = greenVariance * (1 / (dist / 100000 + 1));
 
-    const color = green.map((v, i) => v * (1 + (Math.random() - 0.5) * varianceDropedOff));
-    console.log(color);
-    throw new Error("AA");
+    const color = green.map((v, i) => {
+        const modifier = (1 + (Math.random() - 0.5) * varianceDropedOff);
+        if (x == 0 && z == 0) {
+            console.log('modifier',modifier);
+        }
+        return v*modifier;
+    });
+    // if (x == 0 && z == 0) {
+    //     console.log(varianceDropedOff,x,z,green,color);
+    //     throw new Error("A");
+    // }
     return color;
     const nonFog = 1 / (dist / 40000 + 1);
     let foggedColor = color.map((c, i) => skyColor[i] * (1 - nonFog) + c * nonFog);
@@ -256,6 +264,7 @@ const voxels = [];
 const size = 700;
 const maxDist = 2**(size/100)*size; 
 console.log('MaxDist', maxDist); 
+let nlogged = 0;
 for (let x = -size; x < size; x++) {
     for (let z = -size; z < size; z++) {
         const dist = cubeDist(x, z);
@@ -265,6 +274,10 @@ for (let x = -size; x < size; x++) {
         const yPos = Elevation(realX, realZ);
         let faceColors = [];
         for (let i = 0; i < 6; i++) faceColors.push(getColor(realX,realZ,i))
+        if (nlogged < 10) {
+            console.log(faceColors);
+            nlogged++;
+        }
         voxels.push({ x: realX, y: yPos, z: realZ, face_colors: faceColors, scale: distMult });
     }
 }
