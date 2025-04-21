@@ -3,16 +3,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 const gl = canvas.getContext("webgl");
 
-if (!gl) {
-    alert("WebGL not supported!");
-    throw new Error("WebGL not supported");
-}
-
 const ext = gl.getExtension('ANGLE_instanced_arrays');
-if (!ext) {
-    alert('Instancing not supported!');
-    throw new Error('Instancing not supported');
-}
 
 const vertexShaderSource = `
 attribute vec3 aPosition;
@@ -195,9 +186,6 @@ function createProgram(gl, vsSource, fsSource) {
 }
 
 const program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
-if (!program) {
-    throw new Error("Failed to create shader program");
-}
 gl.useProgram(program);
 
 const cubeVertices = new Float32Array([
@@ -235,13 +223,26 @@ gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
 ext.vertexAttribDivisorANGLE(aPosition, 0); 
 
 const skyColor = [0.53, 0.81, 0.98];
-function getColor(x, z) {
+
+const baseGreen = [0.3, 0.75, 0.3];
+const greenFaces = [
+    [baseGreen[0]-0.2,baseGreen[1]+0.2,baseGreen[2]],
+    [baseGreen[0]+0.2,baseGreen[1]-0.2,baseGreen[2]],
+    [baseGreen[0],baseGreen[1]+0.2,baseGreen[2]-0.2],
+    [baseGreen[0],baseGreen[1]-0.2,baseGreen[2]+0.2],
+    [baseGreen[0]+0.2,baseGreen[1],baseGreen[2]-0.2],
+    [baseGreen[0]-0.2,baseGreen[1],baseGreen[2]+0.2],
+]
+function getColor(x, z,faceIndex) {
     const dist = cubeDist(x, z);
-    const green = [0.3, 0.75, 0.3];
+    const green = greenFaces[faceIndex];
     const greenVariance = 0.33;
-    const varianceDropedOff = greenVariance * (1 / (dist / 1000 + 1));
+    const varianceDropedOff = greenVariance * (1 / (dist / 100000 + 1));
 
     const color = green.map((v, i) => v * (1 + (Math.random() - 0.5) * varianceDropedOff));
+    console.log(color);
+    throw new Error("AA");
+    return color;
     const nonFog = 1 / (dist / 40000 + 1);
     let foggedColor = color.map((c, i) => skyColor[i] * (1 - nonFog) + c * nonFog);
     return foggedColor;
@@ -260,32 +261,36 @@ for (let x = -size; x < size; x++) {
         const dist = cubeDist(x, z);
         const distMult = 2**(dist / 100);
         const realX = x * distMult;
-        const realZ = z * distMult;
-
+        const realZ = z * distMult; 
         const yPos = Elevation(realX, realZ);
-        if (isFinite(yPos)) { 
-           voxels.push({ x: realX, y: yPos, z: realZ, color: getColor(realX, realZ), scale: distMult });
-        } else {
-            console.warn(`Invalid elevation at (${realX}, ${realZ})`);
-        }
+        let faceColors = [];
+        for (let i = 0; i < 6; i++) faceColors.push(getColor(realX,realZ,i))
+        voxels.push({ x: realX, y: yPos, z: realZ, face_colors: faceColors, scale: distMult });
     }
 }
 const numInstances = voxels.length;
 console.log("Number of voxels:", numInstances);
 
+COLORS_FLOATS_PER_INSTANCE = 3 * 36;
+
 const instancePositions = new Float32Array(numInstances * 3);
-const instanceColors = new Float32Array(numInstances * 3);
+const instanceColors = new Float32Array(numInstances * COLORS_FLOATS_PER_INSTANCE );
 const instanceScales = new Float32Array(numInstances); 
 
 voxels.forEach((voxel, i) => {
     instancePositions[i * 3 + 0] = voxel.x;
     instancePositions[i * 3 + 1] = voxel.y;
     instancePositions[i * 3 + 2] = voxel.z;
-
-    instanceColors[i * 3 + 0] = voxel.color[0];
-    instanceColors[i * 3 + 1] = voxel.color[1];
-    instanceColors[i * 3 + 2] = voxel.color[2];
-
+    voxel.face_colors.forEach((color, faceIndex) => {
+        // Each face has 6 vertices
+        for (let vertex = 0; vertex < 6; vertex++) {
+            const vertexIndex = faceIndex * 6 + vertex; // Index of the vertex in the 36-vertex array
+            const colorIndex = i * COLORS_FLOATS_PER_INSTANCE + vertexIndex * 3;
+            instanceColors[colorIndex + 0] = color[0];
+            instanceColors[colorIndex + 1] = color[1];
+            instanceColors[colorIndex + 2] = color[2];
+        }
+    });
     instanceScales[i] = voxel.scale;
 });
 
@@ -313,7 +318,7 @@ ext.vertexAttribDivisorANGLE(aInstancePosition, 1);
 gl.enableVertexAttribArray(aInstanceColor);
 gl.bindBuffer(gl.ARRAY_BUFFER, instanceColorBuffer);
 gl.vertexAttribPointer(aInstanceColor, 3, gl.FLOAT, false, 0, 0);
-ext.vertexAttribDivisorANGLE(aInstanceColor, 1);
+ext.vertexAttribDivisorANGLE(aInstanceColor, 0); // per vertex
 
 gl.enableVertexAttribArray(aInstanceScale);
 gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
@@ -353,7 +358,7 @@ function draw(now = 0) {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceColorBuffer);
     gl.vertexAttribPointer(aInstanceColor, 3, gl.FLOAT, false, 0, 0);
-    ext.vertexAttribDivisorANGLE(aInstanceColor, 1); 
+    ext.vertexAttribDivisorANGLE(aInstanceColor, 0); 
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
     gl.vertexAttribPointer(aInstanceScale, 1, gl.FLOAT, false, 0, 0);
