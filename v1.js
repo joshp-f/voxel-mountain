@@ -107,6 +107,8 @@ function Elevation(x, z) {
         // Add amp to ensure diff offsets for each layer
         let levelHeight = noise.simplex2(x * scale + amp, z * scale + amp);
         levelHeight = Math.max(0, levelHeight);
+        // Spikiness modifier - makes it like alps
+        levelHeight = (levelHeight + levelHeight ** 2);
         height += levelHeight * amp;
     }
     return Math.max(height, 0);
@@ -235,15 +237,15 @@ const snowFaces = [
     [baseSnow[0] + snowFaceGap, baseSnow[1], baseSnow[2] - snowFaceGap],
     [baseSnow[0] - snowFaceGap, baseSnow[1], baseSnow[2] + snowFaceGap],
 ]
-// How to create a non linear starting point for rock?
-// How to make snow patchy? Gradient?
+// How to fill in gaps?
+// need to swap out 1 block fof 2 block
 function getColor(x, z, faceIndex, elevation, steepness) {
     const dist = cubeDist(x, z);
     let faces = greenFaces;
     if (steepness > 1 | elevation > 1000) {
         faces = mountainGrassFaces;
     }
-    if (elevation > 1500 && steepness < 0.5) {
+    if (elevation > 1500 && steepness < 0.7) {
         faces = snowFaces;
     }
     const baseColor = faces[faceIndex];
