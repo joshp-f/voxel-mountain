@@ -97,16 +97,19 @@ function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b
 function add(a, b) { return a.map((v, i) => v + b[i]); }
 function scale(v, s) { return v.map(x => x * s); }
 function dot(a, b) { return a.reduce((sum, v, i) => sum + v * b[i], 0); }
-
 function Elevation(x, z) {
     // Simplified elevation for example, adjust noise parameters as needed
-    const scale1 = 1 / 4096, scale2 = 1 / 1024, scale3 = 1 / 256;
-    const amp1 = 2000, amp2 = 500, amp3 = 50;
-
-    let height = noise.simplex2(x * scale1, z * scale1) * amp1;
-    height += noise.simplex2(x * scale2, z * scale2) * amp2;
-    height += noise.simplex2(x * scale3, z * scale3) * amp3;
-    return height * Math.max(0, noise.simplex2(x / 8192, z / 8192)); // Add large scale modulation
+    let height = 0;
+    const base = 128;
+    for (let i = 0; i < 5; i++) {
+        const amp = base * (2.3 ** i);
+        const scale = 1 / (amp * 8);
+        // Add amp to ensure diff offsets for each layer
+        let levelHeight = noise.simplex2(x * scale + amp, z * scale + amp);
+        levelHeight = Math.max(0, levelHeight);
+        height += levelHeight * amp;
+    }
+    return Math.max(height, 0);
 }
 // --- End Noise ---
 
@@ -205,13 +208,15 @@ function getColor(x, z, faceIndex) {
     const dist = cubeDist(x, z);
     const green = greenFaces[faceIndex];
     const greenVariance = 0.5;
-    const varianceDropedOff = greenVariance * (1 / (dist / 32000 + 1));
+    // Drop off should begin once blocks are small enough to not be pixels on screen
+    const varianceDropedOff = greenVariance * (1 / (dist / 1000 + 1));
 
     const color = green.map((v, i) => {
         const modifier = (1 + (Math.random() - 0.5) * varianceDropedOff);
         return v * modifier;
     });
-    const nonFog = 1 / (dist / 32000 + 1);
+    // IRL, after 50 km stuff is much harder to see
+    const nonFog = 1 / (dist / 25000 + 1);
     let foggedColor = color.map((c, i) => skyColor[i] * (1 - nonFog) + c * nonFog);
     return foggedColor;
 }
