@@ -47,7 +47,7 @@ void main() {
 `;
 
 // --- Camera and Controls (mostly unchanged) ---
-let cameraPos = [0, 200, 5];
+let cameraPos = [0, Elevation(0, 5) + 10, 5];
 let cameraFront = [0, 0, -1];
 let cameraUp = [0, 1, 0];
 let yaw = -90;
@@ -100,9 +100,9 @@ function dot(a, b) { return a.reduce((sum, v, i) => sum + v * b[i], 0); }
 function Elevation(x, z) {
     // Simplified elevation for example, adjust noise parameters as needed
     let height = 0;
-    const base = 128;
-    for (let i = 0; i < 5; i++) {
-        const amp = base * (2.3 ** i);
+    const base = 64;
+    for (let i = 0; i < 6; i++) {
+        const amp = base * (2 ** i);
         const scale = 1 / (amp * 8);
         // Add amp to ensure diff offsets for each layer
         let levelHeight = noise.simplex2(x * scale + amp, z * scale + amp);
@@ -110,6 +110,15 @@ function Elevation(x, z) {
         height += levelHeight * amp;
     }
     return Math.max(height, 0);
+}
+
+function Steepness(realX, realZ) {
+    const elevation = Elevation(realX, realZ)
+    const xElevation = Elevation(realX + 1, realZ);
+    const zElevation = Elevation(realX, realZ + 1);
+    const steepness = EuclideanDist(elevation - xElevation, elevation - zElevation);
+    return steepness;
+
 }
 // --- End Noise ---
 
@@ -226,9 +235,16 @@ const snowFaces = [
     [baseSnow[0] - snowFaceGap, baseSnow[1], baseSnow[2] + snowFaceGap],
 ]
 // How to create a non linear starting point for rock?
-function getColor(x, z, faceIndex, elevation) {
+// How to make snow patchy? Gradient?
+function getColor(x, z, faceIndex, elevation, steepness) {
     const dist = cubeDist(x, z);
-    const faces = elevation > 2000 ? snowFaces : (elevation > 1000 ? mountainRockFaces : greenFaces);
+    let faces = greenFaces;
+    if (steepness > 1 | elevation > 1000) {
+        faces = mountainRockFaces;
+    }
+    if (elevation > 1500 && steepness < 0.5) {
+        faces = snowFaces;
+    }
     const baseColor = faces[faceIndex];
     const baseColorVariance = 0.5;
     // Drop off should begin once blocks are small enough to not be pixels on screen
@@ -245,10 +261,11 @@ function getColor(x, z, faceIndex, elevation) {
 }
 
 function cubeDist(x, z) { return Math.max(Math.abs(x), Math.abs(z)); }
+const EuclideanDist = (x, z) => Math.sqrt(x ** 2 + z ** 2)
 
 // --- Voxel Generation ---
 const voxels = [];
-const nChunks = 512;
+const nChunks = 768;
 const chunkSize = 64;
 const maxDist = chunkSize * nChunks;
 console.log('MaxDist', maxDist);
@@ -265,9 +282,10 @@ function CreateChunk(chunkX, chunkZ) {
             const realX = chunkPosX + i * chunkLevel;
             const realZ = chunkPosZ + j * chunkLevel;
             const yPos = Elevation(realX, realZ);
+            const steepness = Steepness(realX, realZ);
             const faceColors = [];
             for (let i = 0; i < 6; i++) {
-                faceColors.push(getColor(realX, realZ, i, yPos));
+                faceColors.push(getColor(realX, realZ, i, yPos, steepness));
             }
             voxels.push({
                 x: realX,
