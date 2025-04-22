@@ -204,25 +204,26 @@ ext.vertexAttribDivisorANGLE(aFaceIndex, 0); // Face index is per-vertex
 // --- Color Generation ---
 const skyColor = [0.53, 0.81, 0.98];
 
-const baseGreen = [0.3, 0.75, 0.3];
+const baseGreen = [0.3, 0.6, 0.44];
+const greenFaceGap = 0.1;
 const greenFaces = [
-    [baseGreen[0] - 0.2, baseGreen[1] + 0.2, baseGreen[2]],
-    [baseGreen[0] + 0.2, baseGreen[1] - 0.2, baseGreen[2]],
-    [baseGreen[0], baseGreen[1] + 0.2, baseGreen[2] - 0.2],
-    [baseGreen[0], baseGreen[1] - 0.2, baseGreen[2] + 0.2],
-    [baseGreen[0] + 0.2, baseGreen[1], baseGreen[2] - 0.2],
-    [baseGreen[0] - 0.2, baseGreen[1], baseGreen[2] + 0.2],
+    [baseGreen[0] - greenFaceGap, baseGreen[1] + greenFaceGap, baseGreen[2]],
+    [baseGreen[0] + greenFaceGap, baseGreen[1] - greenFaceGap, baseGreen[2]],
+    [baseGreen[0], baseGreen[1] + greenFaceGap, baseGreen[2] - greenFaceGap],
+    [baseGreen[0], baseGreen[1] - greenFaceGap, baseGreen[2] + greenFaceGap],
+    [baseGreen[0] + greenFaceGap, baseGreen[1], baseGreen[2] - greenFaceGap],
+    [baseGreen[0] - greenFaceGap, baseGreen[1], baseGreen[2] + greenFaceGap],
 ]
 
-const baseMountainRock = [0.3, 0.4, 0.44];
+const baseMountainGrass = [0.3, 0.4, 0.44];
 const rockFaceGap = 0.07;
-const mountainRockFaces = [
-    [baseMountainRock[0] - rockFaceGap, baseMountainRock[1] + rockFaceGap, baseMountainRock[2]],
-    [baseMountainRock[0] + rockFaceGap, baseMountainRock[1] - rockFaceGap, baseMountainRock[2]],
-    [baseMountainRock[0], baseMountainRock[1] + rockFaceGap, baseMountainRock[2] - rockFaceGap],
-    [baseMountainRock[0], baseMountainRock[1] - rockFaceGap, baseMountainRock[2] + rockFaceGap],
-    [baseMountainRock[0] + rockFaceGap, baseMountainRock[1], baseMountainRock[2] - rockFaceGap],
-    [baseMountainRock[0] - rockFaceGap, baseMountainRock[1], baseMountainRock[2] + rockFaceGap],
+const mountainGrassFaces = [
+    [baseMountainGrass[0] - rockFaceGap, baseMountainGrass[1] + rockFaceGap, baseMountainGrass[2]],
+    [baseMountainGrass[0] + rockFaceGap, baseMountainGrass[1] - rockFaceGap, baseMountainGrass[2]],
+    [baseMountainGrass[0], baseMountainGrass[1] + rockFaceGap, baseMountainGrass[2] - rockFaceGap],
+    [baseMountainGrass[0], baseMountainGrass[1] - rockFaceGap, baseMountainGrass[2] + rockFaceGap],
+    [baseMountainGrass[0] + rockFaceGap, baseMountainGrass[1], baseMountainGrass[2] - rockFaceGap],
+    [baseMountainGrass[0] - rockFaceGap, baseMountainGrass[1], baseMountainGrass[2] + rockFaceGap],
 ]
 const baseSnow = [0.8, 0.8, 0.8];
 const snowFaceGap = 0.07;
@@ -240,7 +241,7 @@ function getColor(x, z, faceIndex, elevation, steepness) {
     const dist = cubeDist(x, z);
     let faces = greenFaces;
     if (steepness > 1 | elevation > 1000) {
-        faces = mountainRockFaces;
+        faces = mountainGrassFaces;
     }
     if (elevation > 1500 && steepness < 0.5) {
         faces = snowFaces;
