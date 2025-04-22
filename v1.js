@@ -77,7 +77,7 @@ document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
 function updateCamera(deltaTime) {
-    const speed = 500 * deltaTime;
+    const speed = 5000 * deltaTime;
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
@@ -204,17 +204,14 @@ const greenFaces = [
 function getColor(x, z, faceIndex) {
     const dist = cubeDist(x, z);
     const green = greenFaces[faceIndex];
-    const greenVariance = 0.77;
-    const varianceDropedOff = greenVariance * (1 / (dist / 100000 + 1));
+    const greenVariance = 0.5;
+    const varianceDropedOff = greenVariance * (1 / (dist / 32000 + 1));
 
     const color = green.map((v, i) => {
         const modifier = (1 + (Math.random() - 0.5) * varianceDropedOff);
-        if (x == 0 && z == 0) {
-            console.log('modifier', modifier);
-        }
         return v * modifier;
     });
-    const nonFog = 1 / (dist / 40000 + 1);
+    const nonFog = 1 / (dist / 32000 + 1);
     let foggedColor = color.map((c, i) => skyColor[i] * (1 - nonFog) + c * nonFog);
     return foggedColor;
 }
@@ -230,26 +227,39 @@ function cubeDist(x, z) { return Math.max(Math.abs(x), Math.abs(z)); }
 
 // --- Voxel Generation ---
 const voxels = [];
-const size = 700;
-const maxDist = 2 ** (size / 100) * size;
+const nChunks = 512;
+const chunkSize = 64;
+const maxDist = chunkSize * nChunks;
 console.log('MaxDist', maxDist);
-for (let x = -size; x < size; x++) {
-    for (let z = -size; z < size; z++) {
-        const dist = cubeDist(x, z);
-        const distMult = 2 ** (dist / 100);
-        // const distMult = 1;
-        const realX = x * distMult;
-        const realZ = z * distMult;
+function CreateChunk(chunkX, chunkZ) {
+    const chunkPosX = chunkSize * chunkX;
+    const chunkPosZ = chunkSize * chunkZ;
+    let dist = cubeDist(chunkX, chunkZ);
+    dist = Math.max(dist, 1);
+    let chunkLevel = Math.pow(2, Math.floor(Math.log2(dist - 1)));
+    chunkLevel = Math.min(Math.max(chunkLevel, 1), chunkSize);
+    const nBlocks = chunkSize / chunkLevel;
+    for (let i = 0; i < nBlocks; i++) {
+        for (let j = 0; j < nBlocks; j++) {
+            const realX = chunkPosX + i * chunkLevel;
+            const realZ = chunkPosZ + j * chunkLevel;
+            const yPos = Elevation(realX, realZ);
+            voxels.push({
+                x: realX,
+                y: yPos,
+                z: realZ,
+                faceColors: getFaceColors(realX, realZ), // Store array of 6 colors
+                scale: chunkLevel
+            });
+        }
+    }
 
-        const yPos = Elevation(realX, realZ);
-        voxels.push({
-            x: realX,
-            y: yPos,
-            z: realZ,
-            faceColors: getFaceColors(realX, realZ), // Store array of 6 colors
-            scale: distMult
-        });
 
+
+}
+for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
+    for (let chunkZ = -nChunks; chunkZ < nChunks; chunkZ++) {
+        CreateChunk(chunkX, chunkZ);
     }
 }
 const numInstances = voxels.length;
