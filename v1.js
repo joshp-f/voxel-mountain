@@ -204,14 +204,37 @@ const greenFaces = [
     [baseGreen[0] + 0.2, baseGreen[1], baseGreen[2] - 0.2],
     [baseGreen[0] - 0.2, baseGreen[1], baseGreen[2] + 0.2],
 ]
-function getColor(x, z, faceIndex) {
-    const dist = cubeDist(x, z);
-    const green = greenFaces[faceIndex];
-    const greenVariance = 0.5;
-    // Drop off should begin once blocks are small enough to not be pixels on screen
-    const varianceDropedOff = greenVariance * (1 / (dist / 1000 + 1));
 
-    const color = green.map((v, i) => {
+const baseMountainRock = [0.3, 0.4, 0.44];
+const rockFaceGap = 0.07;
+const mountainRockFaces = [
+    [baseMountainRock[0] - rockFaceGap, baseMountainRock[1] + rockFaceGap, baseMountainRock[2]],
+    [baseMountainRock[0] + rockFaceGap, baseMountainRock[1] - rockFaceGap, baseMountainRock[2]],
+    [baseMountainRock[0], baseMountainRock[1] + rockFaceGap, baseMountainRock[2] - rockFaceGap],
+    [baseMountainRock[0], baseMountainRock[1] - rockFaceGap, baseMountainRock[2] + rockFaceGap],
+    [baseMountainRock[0] + rockFaceGap, baseMountainRock[1], baseMountainRock[2] - rockFaceGap],
+    [baseMountainRock[0] - rockFaceGap, baseMountainRock[1], baseMountainRock[2] + rockFaceGap],
+]
+const baseSnow = [0.8, 0.8, 0.8];
+const snowFaceGap = 0.07;
+const snowFaces = [
+    [baseSnow[0] - snowFaceGap, baseSnow[1] + snowFaceGap, baseSnow[2]],
+    [baseSnow[0] + snowFaceGap, baseSnow[1] - snowFaceGap, baseSnow[2]],
+    [baseSnow[0], baseSnow[1] + snowFaceGap, baseSnow[2] - snowFaceGap],
+    [baseSnow[0], baseSnow[1] - snowFaceGap, baseSnow[2] + snowFaceGap],
+    [baseSnow[0] + snowFaceGap, baseSnow[1], baseSnow[2] - snowFaceGap],
+    [baseSnow[0] - snowFaceGap, baseSnow[1], baseSnow[2] + snowFaceGap],
+]
+// How to create a non linear starting point for rock?
+function getColor(x, z, faceIndex, elevation) {
+    const dist = cubeDist(x, z);
+    const faces = elevation > 2000 ? snowFaces : (elevation > 1000 ? mountainRockFaces : greenFaces);
+    const baseColor = faces[faceIndex];
+    const baseColorVariance = 0.5;
+    // Drop off should begin once blocks are small enough to not be pixels on screen
+    const varianceDropedOff = baseColorVariance * (1 / (dist / 1000 + 1));
+
+    const color = baseColor.map((v, i) => {
         const modifier = (1 + (Math.random() - 0.5) * varianceDropedOff);
         return v * modifier;
     });
@@ -219,13 +242,6 @@ function getColor(x, z, faceIndex) {
     const nonFog = 1 / (dist / 25000 + 1);
     let foggedColor = color.map((c, i) => skyColor[i] * (1 - nonFog) + c * nonFog);
     return foggedColor;
-}
-function getFaceColors(x, z) {
-    const faceColors = [];
-    for (let i = 0; i < 6; i++) {
-        faceColors.push(getColor(x, z, i));
-    }
-    return faceColors; // Return array of 6 color vectors [ [r,g,b], [r,g,b], ... ]
 }
 
 function cubeDist(x, z) { return Math.max(Math.abs(x), Math.abs(z)); }
@@ -249,11 +265,15 @@ function CreateChunk(chunkX, chunkZ) {
             const realX = chunkPosX + i * chunkLevel;
             const realZ = chunkPosZ + j * chunkLevel;
             const yPos = Elevation(realX, realZ);
+            const faceColors = [];
+            for (let i = 0; i < 6; i++) {
+                faceColors.push(getColor(realX, realZ, i, yPos));
+            }
             voxels.push({
                 x: realX,
                 y: yPos,
                 z: realZ,
-                faceColors: getFaceColors(realX, realZ), // Store array of 6 colors
+                faceColors, // Store array of 6 colors
                 scale: chunkLevel
             });
         }
