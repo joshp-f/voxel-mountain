@@ -77,7 +77,7 @@ document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
 function updateCamera(deltaTime) {
-    const speed = 5000 * deltaTime;
+    const speed = 50 * deltaTime;
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
@@ -155,25 +155,27 @@ if (!program) { throw new Error("Failed to create shader program"); }
 gl.useProgram(program);
 
 // --- Cube Vertex Data ---
+// 4 deep blocks so larger gradients are covered
+const by = -3.5;
 const cubeVertices = new Float32Array([
     // Front face (+Z) (Index 0)
-    -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5,
-    -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5,
+    -0.5, by, 0.5, 0.5, by, 0.5, 0.5, 0.5, 0.5,
+    -0.5, by, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5,
     // Back face (-Z) (Index 1)
-    -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5,
-    -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5,
+    -0.5, by, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5,
+    -0.5, by, -0.5, 0.5, 0.5, -0.5, 0.5, by, -0.5,
     // Top face (+Y) (Index 2)
     -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
     -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5,
     // Bottom face (-Y) (Index 3)
-    -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5,
-    -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5,
+    -0.5, by, -0.5, 0.5, by, -0.5, 0.5, by, 0.5,
+    -0.5, by, -0.5, 0.5, by, 0.5, -0.5, by, 0.5,
     // Right face (+X) (Index 4)
-    0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5,
-    0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5,
+    0.5, by, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5,
+    0.5, by, -0.5, 0.5, 0.5, 0.5, 0.5, by, 0.5,
     // Left face (-X) (Index 5)
-    -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5,
-    -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
+    -0.5, by, -0.5, -0.5, by, 0.5, -0.5, 0.5, 0.5,
+    -0.5, by, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
 ]);
 const CUBE_VERTEX_COUNT = 36;
 
