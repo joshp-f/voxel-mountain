@@ -111,7 +111,12 @@ function Elevation(x, z) {
         levelHeight = (levelHeight + levelHeight ** 2);
         height += levelHeight * amp;
     }
-    return Math.max(height, 0);
+
+    height = Math.max(height, 0);
+    // Force origin to 0 elevation
+    const distToOrigin = cubeDist(x, z);
+    if (distToOrigin < 10000) height *= distToOrigin / 10000
+    return height;
 }
 
 function Steepness(realX, realZ) {
