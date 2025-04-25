@@ -413,7 +413,8 @@ const uProjection = gl.getUniformLocation(program, "uProjection");
 const uView = gl.getUniformLocation(program, "uView");
 
 const aspect = canvas.width / canvas.height;
-const projMatrix = perspective(Math.PI / 3, aspect, 0.1, maxDist * 2);
+// For now , keep near plane really high, because it means depth buffer solves clipping issues at large range
+const projMatrix = perspective(Math.PI / 3, aspect, 1, maxDist * 2);
 gl.uniformMatrix4fv(uProjection, false, projMatrix);
 
 // --- Draw Loop ---
