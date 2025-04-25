@@ -216,7 +216,7 @@ gl.vertexAttribPointer(aFaceIndex, 1, gl.FLOAT, false, 0, 0);
 // gl.vertexAttribDivisor(aFaceIndex, 0); // Divisor 0 is default
 
 // --- Color Generation ---
-const skyColor = [0.53, 0.81, 0.98];
+const skyColor = [0.4, 0.75, 0.98];
 
 const baseGreen = [0.3, 0.6, 0.44];
 const greenFaceGap = 0.1;
