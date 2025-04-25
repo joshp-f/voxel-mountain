@@ -113,8 +113,13 @@ function Elevation(x, z) {
     }
     height = Math.max(height, 0);
     const distToOrigin = cubeDist(x, z);
-    const falloffRadius = 10000;
-    if (distToOrigin < falloffRadius) height *= distToOrigin / falloffRadius;
+    const falloffRadius = 5000;
+
+    if (distToOrigin < falloffRadius) {
+        const fallOffAmount = distToOrigin / falloffRadius;
+        // Lerp towards 500 metres around spawn
+        height = height * fallOffAmount + 500 * (1 - fallOffAmount);
+    }
     return height;
 }
 
@@ -248,10 +253,13 @@ const snowFaces = [
 function getColor(x, z, faceIndex, elevation, steepness) {
     const dist = cubeDist(x, z);
     let faces = greenFaces;
-    if (steepness > 1 || elevation > 1000) {
+    // elevation + steepness makes jagged border
+    if (steepness > 1 || (elevation + steepness * 200) > 1000) {
         faces = mountainGrassFaces;
     }
-    if (elevation > 1500 && steepness < 0.7) {
+
+    // elevation + steepness makes jagged border
+    if (((elevation - steepness * 200) > 1500) && steepness < 0.75) {
         faces = snowFaces;
     }
     const baseColor = faces[faceIndex];
@@ -414,7 +422,7 @@ const uView = gl.getUniformLocation(program, "uView");
 
 const aspect = canvas.width / canvas.height;
 // For now , keep near plane really high, because it means depth buffer solves clipping issues at large range
-const projMatrix = perspective(Math.PI / 3, aspect, 1, maxDist * 2);
+const projMatrix = perspective(Math.PI / 3, aspect, 1, maxDist * 1.5);
 gl.uniformMatrix4fv(uProjection, false, projMatrix);
 
 // --- Draw Loop ---
