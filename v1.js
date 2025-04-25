@@ -1,52 +1,55 @@
+
 const canvas = document.getElementById("glcanvas");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
-const gl = canvas.getContext("webgl");
+// Get WebGL2 context
+const gl = canvas.getContext("webgl2");
 
-const ext = gl.getExtension('ANGLE_instanced_arrays');
+// WebGL2 Shaders
+const vertexShaderSource = `#version 300 es
+                in vec3 aPosition;
+                in float aFaceIndex; // Index (0-5) to select the correct face color
+                in vec3 aInstancePosition;
+                in vec3 aInstanceColor0; // Color for face 0 (Front)
+                in vec3 aInstanceColor1; // Color for face 1 (Back)
+                in vec3 aInstanceColor2; // Color for face 2 (Top)
+                in vec3 aInstanceColor3; // Color for face 3 (Bottom)
+                in vec3 aInstanceColor4; // Color for face 4 (Right)
+                in vec3 aInstanceColor5; // Color for face 5 (Left)
+                in float aInstanceScale;
 
+                uniform mat4 uProjection;
+                uniform mat4 uView;
 
-const vertexShaderSource = `
-attribute vec3 aPosition;
-attribute float aFaceIndex; // Index (0-5) to select the correct face color
-attribute vec3 aInstancePosition;
-attribute vec3 aInstanceColor0; // Color for face 0 (Front)
-attribute vec3 aInstanceColor1; // Color for face 1 (Back)
-attribute vec3 aInstanceColor2; // Color for face 2 (Top)
-attribute vec3 aInstanceColor3; // Color for face 3 (Bottom)
-attribute vec3 aInstanceColor4; // Color for face 4 (Right)
-attribute vec3 aInstanceColor5; // Color for face 5 (Left)
-attribute float aInstanceScale;
+                out vec3 vColor; // Use 'out' instead of 'varying'
 
-uniform mat4 uProjection;
-uniform mat4 uView;
+                void main() {
+                    vec3 scaledPosition = aPosition * aInstanceScale;
+                gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
 
-varying vec3 vColor;
-
-void main() {
-    vec3 scaledPosition = aPosition * aInstanceScale;
-    gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
-
-    // Select the face color based on the face index
-    if (aFaceIndex < 0.5) { vColor = aInstanceColor0; }
-    else if (aFaceIndex < 1.5) { vColor = aInstanceColor1; }
-    else if (aFaceIndex < 2.5) { vColor = aInstanceColor2; }
-    else if (aFaceIndex < 3.5) { vColor = aInstanceColor3; }
-    else if (aFaceIndex < 4.5) { vColor = aInstanceColor4; }
-    else { vColor = aInstanceColor5; }
+                // Select the face color based on the face index
+                if (aFaceIndex < 0.5) {vColor = aInstanceColor0; }
+                else if (aFaceIndex < 1.5) {vColor = aInstanceColor1; }
+                else if (aFaceIndex < 2.5) {vColor = aInstanceColor2; }
+                else if (aFaceIndex < 3.5) {vColor = aInstanceColor3; }
+                else if (aFaceIndex < 4.5) {vColor = aInstanceColor4; }
+                else {vColor = aInstanceColor5; }
 }
-`;
+                `;
 
-const fragmentShaderSource = `
-precision mediump float;
-varying vec3 vColor;
+const fragmentShaderSource = `#version 300 es
+                precision mediump float;
+                in vec3 vColor; // Use 'in' instead of 'varying'
 
-void main() {
-    gl_FragColor = vec4(vColor, 1.0);
+                out vec4 fragColor; // Define output color variable
+
+                void main() {
+                    fragColor = vec4(vColor, 1.0); // Assign to output variable
 }
-`;
+                `;
 
-// --- Camera and Controls (mostly unchanged) ---
+// --- Camera and Controls ---
+
 let cameraPos = [0, Elevation(0, 5) + 10, 5];
 let cameraFront = [0, 0, -1];
 let cameraUp = [0, 1, 0];
@@ -81,55 +84,50 @@ function updateCamera(deltaTime) {
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
-    const up = normalize(cross(right, forward));
+    // const up = normalize(cross(right, forward)); // Local up, not used for movement here
     if (keys["w"]) cameraPos = add(cameraPos, scale(forward, speed));
     if (keys["s"]) cameraPos = add(cameraPos, scale(forward, -speed));
     if (keys["a"]) cameraPos = add(cameraPos, scale(right, -speed));
     if (keys["d"]) cameraPos = add(cameraPos, scale(right, speed));
-    if (keys[" "]) cameraPos = add(cameraPos, scale([0, 1, 0], speed));
-    if (keys["shift"]) cameraPos = add(cameraPos, scale([0, 1, 0], -speed));
+    if (keys[" "]) cameraPos = add(cameraPos, scale([0, 1, 0], speed)); // Move along world Y
+    if (keys["shift"]) cameraPos = add(cameraPos, scale([0, 1, 0], -speed)); // Move along world Y
 }
 // --- End Camera ---
 
-// --- Math Utilities (unchanged) ---
+// --- Math Utilities ---
 function normalize(v) { const len = Math.hypot(...v); if (len === 0) return [0, 0, 0]; return v.map(x => x / len); }
 function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
 function add(a, b) { return a.map((v, i) => v + b[i]); }
 function scale(v, s) { return v.map(x => x * s); }
 function dot(a, b) { return a.reduce((sum, v, i) => sum + v * b[i], 0); }
 function Elevation(x, z) {
-    // Simplified elevation for example, adjust noise parameters as needed
     let height = 0;
     const base = 64;
     for (let i = 0; i < 6; i++) {
         const amp = base * (2 ** i);
         const scale = 1 / (amp * 8);
-        // Add amp to ensure diff offsets for each layer
         let levelHeight = noise.simplex2(x * scale + amp, z * scale + amp);
         levelHeight = Math.max(0, levelHeight);
-        // Spikiness modifier - makes it like alps
         levelHeight = (levelHeight + levelHeight ** 2);
         height += levelHeight * amp;
     }
-
     height = Math.max(height, 0);
-    // Force origin to 0 elevation
     const distToOrigin = cubeDist(x, z);
-    if (distToOrigin < 10000) height *= distToOrigin / 10000
+    const falloffRadius = 10000;
+    if (distToOrigin < falloffRadius) height *= distToOrigin / falloffRadius;
     return height;
 }
 
 function Steepness(realX, realZ) {
-    const elevation = Elevation(realX, realZ)
+    const elevation = Elevation(realX, realZ);
     const xElevation = Elevation(realX + 1, realZ);
     const zElevation = Elevation(realX, realZ + 1);
     const steepness = EuclideanDist(elevation - xElevation, elevation - zElevation);
     return steepness;
-
 }
 // --- End Noise ---
 
-// --- Matrix Functions (unchanged) ---
+// --- Matrix Functions ---
 function lookAt(eye, center, up) {
     const f = normalize([center[0] - eye[0], center[1] - eye[1], center[2] - eye[2]]);
     const s = normalize(cross(f, up));
@@ -142,7 +140,7 @@ function perspective(fov, aspect, near, far) {
 }
 // --- End Matrix Functions ---
 
-// --- Shader Compilation (unchanged) ---
+// --- Shader Compilation ---
 function createShader(gl, type, source) {
     const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader);
     return shader;
@@ -160,7 +158,6 @@ if (!program) { throw new Error("Failed to create shader program"); }
 gl.useProgram(program);
 
 // --- Cube Vertex Data ---
-// 4 deep blocks so larger gradients are covered
 const by = -3.5;
 const cubeVertices = new Float32Array([
     // Front face (+Z) (Index 0)
@@ -184,6 +181,11 @@ const cubeVertices = new Float32Array([
 ]);
 const CUBE_VERTEX_COUNT = 36;
 
+// --- Create Vertex Array Object (VAO) ---
+// VAOs encapsulate buffer bindings and attribute configurations
+const vao = gl.createVertexArray();
+gl.bindVertexArray(vao);
+
 // --- Create Vertex Position Buffer ---
 const positionBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -191,13 +193,13 @@ gl.bufferData(gl.ARRAY_BUFFER, cubeVertices, gl.STATIC_DRAW);
 const aPosition = gl.getAttribLocation(program, "aPosition");
 gl.enableVertexAttribArray(aPosition);
 gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
-ext.vertexAttribDivisorANGLE(aPosition, 0); // Position is per-vertex
+// gl.vertexAttribDivisor(aPosition, 0); // Divisor 0 is default
 
 // --- Create Face Index Buffer ---
 const cubeFaceIndices = new Float32Array(CUBE_VERTEX_COUNT);
 for (let face = 0; face < 6; ++face) {
     for (let vert = 0; vert < 6; ++vert) {
-        cubeFaceIndices[face * 6 + vert] = face; // Assign index 0-5 to vertices of each face
+        cubeFaceIndices[face * 6 + vert] = face;
     }
 }
 const faceIndexBuffer = gl.createBuffer();
@@ -205,10 +207,8 @@ gl.bindBuffer(gl.ARRAY_BUFFER, faceIndexBuffer);
 gl.bufferData(gl.ARRAY_BUFFER, cubeFaceIndices, gl.STATIC_DRAW);
 const aFaceIndex = gl.getAttribLocation(program, "aFaceIndex");
 gl.enableVertexAttribArray(aFaceIndex);
-// Bind the buffer before setting the pointer
-gl.bindBuffer(gl.ARRAY_BUFFER, faceIndexBuffer);
 gl.vertexAttribPointer(aFaceIndex, 1, gl.FLOAT, false, 0, 0);
-ext.vertexAttribDivisorANGLE(aFaceIndex, 0); // Face index is per-vertex
+// gl.vertexAttribDivisor(aFaceIndex, 0); // Divisor 0 is default
 
 // --- Color Generation ---
 const skyColor = [0.53, 0.81, 0.98];
@@ -222,7 +222,7 @@ const greenFaces = [
     [baseGreen[0], baseGreen[1] - greenFaceGap, baseGreen[2] + greenFaceGap],
     [baseGreen[0] + greenFaceGap, baseGreen[1], baseGreen[2] - greenFaceGap],
     [baseGreen[0] - greenFaceGap, baseGreen[1], baseGreen[2] + greenFaceGap],
-]
+];
 
 const baseMountainGrass = [0.3, 0.4, 0.44];
 const rockFaceGap = 0.07;
@@ -233,7 +233,7 @@ const mountainGrassFaces = [
     [baseMountainGrass[0], baseMountainGrass[1] - rockFaceGap, baseMountainGrass[2] + rockFaceGap],
     [baseMountainGrass[0] + rockFaceGap, baseMountainGrass[1], baseMountainGrass[2] - rockFaceGap],
     [baseMountainGrass[0] - rockFaceGap, baseMountainGrass[1], baseMountainGrass[2] + rockFaceGap],
-]
+];
 const baseSnow = [0.8, 0.8, 0.8];
 const snowFaceGap = 0.07;
 const snowFaces = [
@@ -243,13 +243,12 @@ const snowFaces = [
     [baseSnow[0], baseSnow[1] - snowFaceGap, baseSnow[2] + snowFaceGap],
     [baseSnow[0] + snowFaceGap, baseSnow[1], baseSnow[2] - snowFaceGap],
     [baseSnow[0] - snowFaceGap, baseSnow[1], baseSnow[2] + snowFaceGap],
-]
-// How to fill in gaps?
-// need to swap out 1 block fof 2 block
+];
+
 function getColor(x, z, faceIndex, elevation, steepness) {
     const dist = cubeDist(x, z);
     let faces = greenFaces;
-    if (steepness > 1 | elevation > 1000) {
+    if (steepness > 1 || elevation > 1000) {
         faces = mountainGrassFaces;
     }
     if (elevation > 1500 && steepness < 0.7) {
@@ -257,21 +256,19 @@ function getColor(x, z, faceIndex, elevation, steepness) {
     }
     const baseColor = faces[faceIndex];
     const baseColorVariance = 0.5;
-    // Drop off should begin once blocks are small enough to not be pixels on screen
     const varianceDropedOff = baseColorVariance * (1 / (dist / 1000 + 1));
 
     const color = baseColor.map((v, i) => {
         const modifier = (1 + (Math.random() - 0.5) * varianceDropedOff);
-        return v * modifier;
+        return Math.max(0, Math.min(1, v * modifier)); // Clamp color
     });
-    // IRL, after 50 km stuff is much harder to see
     const nonFog = 1 / (dist / 25000 + 1);
     let foggedColor = color.map((c, i) => skyColor[i] * (1 - nonFog) + c * nonFog);
     return foggedColor;
 }
 
 function cubeDist(x, z) { return Math.max(Math.abs(x), Math.abs(z)); }
-const EuclideanDist = (x, z) => Math.sqrt(x ** 2 + z ** 2)
+const EuclideanDist = (x, z) => Math.sqrt(x ** 2 + z ** 2);
 
 // --- Voxel Generation ---
 const voxels = [];
@@ -294,21 +291,18 @@ function CreateChunk(chunkX, chunkZ) {
             const yPos = Elevation(realX, realZ);
             const steepness = Steepness(realX, realZ);
             const faceColors = [];
-            for (let i = 0; i < 6; i++) {
-                faceColors.push(getColor(realX, realZ, i, yPos, steepness));
+            for (let face = 0; face < 6; face++) {
+                faceColors.push(getColor(realX, realZ, face, yPos, steepness));
             }
             voxels.push({
                 x: realX,
                 y: yPos,
                 z: realZ,
-                faceColors, // Store array of 6 colors
+                faceColors,
                 scale: chunkLevel
             });
         }
     }
-
-
-
 }
 for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
     for (let chunkZ = -nChunks; chunkZ < nChunks; chunkZ++) {
@@ -318,10 +312,11 @@ for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
 const numInstances = voxels.length;
 console.log("Number of voxels:", numInstances);
 
+// Set initial camera height based on terrain at origin
+
 // --- Instance Data Buffers ---
 const instancePositions = new Float32Array(numInstances * 3);
 const instanceScales = new Float32Array(numInstances);
-// Create arrays for each face color component
 const instanceColors0 = new Float32Array(numInstances * 3);
 const instanceColors1 = new Float32Array(numInstances * 3);
 const instanceColors2 = new Float32Array(numInstances * 3);
@@ -333,10 +328,7 @@ voxels.forEach((voxel, i) => {
     instancePositions[i * 3 + 0] = voxel.x;
     instancePositions[i * 3 + 1] = voxel.y;
     instancePositions[i * 3 + 2] = voxel.z;
-
     instanceScales[i] = voxel.scale;
-
-    // Populate face color arrays
     for (let face = 0; face < 6; face++) {
         const colorArr = [instanceColors0, instanceColors1, instanceColors2, instanceColors3, instanceColors4, instanceColors5][face];
         const color = voxel.faceColors[face];
@@ -355,7 +347,6 @@ const instanceScaleBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
 gl.bufferData(gl.ARRAY_BUFFER, instanceScales, gl.STATIC_DRAW);
 
-// Function to create and bind an instance color buffer
 function createInstanceColorBuffer(gl, data) {
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -387,30 +378,34 @@ const instanceColorBuffers = [
     instanceColorBuffer3, instanceColorBuffer4, instanceColorBuffer5
 ];
 
-// --- Set Instance Attribute Pointers ---
+// --- Set Instance Attribute Pointers (within the VAO setup) ---
 gl.enableVertexAttribArray(aInstancePosition);
 gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionBuffer);
 gl.vertexAttribPointer(aInstancePosition, 3, gl.FLOAT, false, 0, 0);
-ext.vertexAttribDivisorANGLE(aInstancePosition, 1); // Position is per-instance
+gl.vertexAttribDivisor(aInstancePosition, 1); // Use WebGL2 native instancing
 
 gl.enableVertexAttribArray(aInstanceScale);
 gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
 gl.vertexAttribPointer(aInstanceScale, 1, gl.FLOAT, false, 0, 0);
-ext.vertexAttribDivisorANGLE(aInstanceScale, 1); // Scale is per-instance
+gl.vertexAttribDivisor(aInstanceScale, 1); // Use WebGL2 native instancing
 
-// Set up attribute pointers for each instance color buffer
 for (let i = 0; i < 6; i++) {
     const loc = aInstanceColorLocations[i];
     const buffer = instanceColorBuffers[i];
-    if (loc !== -1) { // Check if attribute exists in shader
+    if (loc !== -1) {
         gl.enableVertexAttribArray(loc);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
-        ext.vertexAttribDivisorANGLE(loc, 1); // Colors are per-instance
+        gl.vertexAttribDivisor(loc, 1); // Use WebGL2 native instancing
     } else {
         console.warn(`Attribute aInstanceColor${i} not found in shader.`);
     }
 }
+
+// Unbind the VAO after setup
+gl.bindVertexArray(null);
+// Unbind ARRAY_BUFFER as well, good practice
+gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
 
 // --- Uniform Locations and Projection Matrix ---
@@ -438,59 +433,22 @@ function draw(now = 0) {
     gl.enable(gl.DEPTH_TEST);
     gl.viewport(0, 0, canvas.width, canvas.height);
 
-    // NOTE: Binding buffers and setting vertexAttribPointers is generally done
-    // *once* after creating the buffers and before the first draw call,
-    // unless the data or buffer bindings change frequently.
-    // Re-binding vertex attributes here is not strictly necessary if they
-    // were set up correctly outside the loop as done above.
+    // Bind the VAO. This restores all vertex attribute state.
+    gl.bindVertexArray(vao);
 
-    // However, we DO need to ensure the correct VAO (or individual buffers in WebGL1)
-    // are active if switching between different objects/shaders.
-    // For this single-object case, the setup outside the loop is sufficient.
-
-    // Bind vertex buffers (divisor 0) - needed if switching objects/VAOs
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, faceIndexBuffer);
-    gl.vertexAttribPointer(aFaceIndex, 1, gl.FLOAT, false, 0, 0);
-
-    // Bind instance buffers (divisor 1) - also usually set up once
-    // Re-binding is redundant here but shown for clarity if needed elsewhere.
-    gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionBuffer);
-    gl.vertexAttribPointer(aInstancePosition, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
-    gl.vertexAttribPointer(aInstanceScale, 1, gl.FLOAT, false, 0, 0);
-    for (let i = 0; i < 6; i++) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, instanceColorBuffers[i]);
-        gl.vertexAttribPointer(aInstanceColorLocations[i], 3, gl.FLOAT, false, 0, 0);
-    }
-
-
-    // Perform the instanced draw call
-    ext.drawArraysInstancedANGLE(
+    // Perform the instanced draw call using WebGL2 native function
+    gl.drawArraysInstanced(
         gl.TRIANGLES,          // primitive type
-        0,                     // offset
-        CUBE_VERTEX_COUNT,     // number of vertices per instance (36 for a cube made of triangles)
-        numInstances           // number of instances
+        0,                      // offset
+        CUBE_VERTEX_COUNT,      // number of vertices per instance
+        numInstances            // number of instances
     );
+
+    // Unbind the VAO after drawing (optional but good practice)
+    gl.bindVertexArray(null);
 
     requestAnimationFrame(draw);
 }
 
-// Initial setup of vertex attribute pointers before the first draw
-// (This is redundant with the setup above but demonstrates where it should happen)
-gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
-gl.bindBuffer(gl.ARRAY_BUFFER, faceIndexBuffer);
-gl.vertexAttribPointer(aFaceIndex, 1, gl.FLOAT, false, 0, 0);
-gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionBuffer);
-gl.vertexAttribPointer(aInstancePosition, 3, gl.FLOAT, false, 0, 0);
-gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
-gl.vertexAttribPointer(aInstanceScale, 1, gl.FLOAT, false, 0, 0);
-for (let i = 0; i < 6; i++) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceColorBuffers[i]);
-    gl.vertexAttribPointer(aInstanceColorLocations[i], 3, gl.FLOAT, false, 0, 0);
-}
-
-
+// No need to bind/set pointers again here, VAO handles it.
 draw(); // Start the rendering loop
