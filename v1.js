@@ -51,6 +51,7 @@ const fragmentShaderSource = `#version 300 es
 // --- Camera and Controls ---
 
 let cameraPos = [0, Elevation(0, 5) + 10, 5];
+let yVel = 0;
 let cameraFront = [0, 0, -1];
 let cameraUp = [0, 1, 0];
 let yaw = -90;
@@ -519,7 +520,14 @@ function draw(now = 0) {
     lastTime = now;
 
     updateCamera(deltaTime);
-
+    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 20;
+    if (cameraPos[1] < groundElevation) {
+        cameraPos[1] = groundElevation;
+        yVel = 0;
+    } else {
+        yVel += deltaTime
+        cameraPos[1] -= yVel;
+    }
     const center = add(cameraPos, cameraFront);
     const viewMatrix = lookAt(cameraPos, center, cameraUp);
     gl.uniformMatrix4fv(uView, false, viewMatrix);
