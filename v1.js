@@ -50,6 +50,8 @@ void main() {
 // --- Camera and Controls ---
 
 let cameraPos = [0, Elevation(0, 5) + 10, 5];
+let currentChunkX = 0;
+let currentChunkZ = 0;
 let yVel = 0;
 let cameraFront = [0, 0, -1];
 let cameraUp = [0, 1, 0];
@@ -305,6 +307,17 @@ class ChunkManager {
         this.voxelCounter = 0;
         this.chunkMap = {};
         this.voxelMap = {};
+        this.chunkLevels = {};
+    }
+    CreateChunk(chunkX, chunkZ) {
+        const chunkId = `${chunkX}-${chunkZ}`
+        let dist = cubeDist(chunkX - currentChunkX, chunkZ - currentChunkZ);
+        dist = Math.max(dist, 1);
+        let chunkLevel = Math.pow(2, Math.floor(Math.log2(dist - 1)));
+        if (chunkId in this.chunkLevels && this.chunkLevels[chunkId] == chunkLevel) return;
+        this.DeleteChunk(chunkX, chunkZ);
+        this.chunkLevels[chunkId] = chunkLevel;
+        _CreateChunk(chunkX, chunkZ, chunkLevel);
     }
     PushVoxel(voxel) {
         const chunkX = Math.floor(voxel.x / chunkSize);
@@ -323,6 +336,7 @@ class ChunkManager {
                 delete this.voxelMap[id];
             }
             delete this.chunkMap[chunkId];
+            delete this.chunkLevels[chunkId];
         }
     }
 }
@@ -336,7 +350,10 @@ const treeRadius = 3;
 const treeHeight = 32;
 
 let numInstances = 0; // Will be updated in regenerateWorldAndUploadData
+function CrapRandom(x, z) {
+    return noise.simplex2(x, z);
 
+}
 function EntityVoxels(face, x, y, z, chunkLevel) {
     if (face === 'pine' && (chunkLevel <= treeDist)) {
         let treeX = Math.floor(x / treeDist) * treeDist;
@@ -344,8 +361,8 @@ function EntityVoxels(face, x, y, z, chunkLevel) {
         const distToTree = EuclideanDist(treeX - x, treeZ - z);
         const treeBase = y + chunkLevel / 2;
         if (distToTree < chunkLevel && treeX) {
-            treeX += (Math.random() - 0.5) * treeDist;
-            treeZ += (Math.random() - 0.5) * treeDist;
+            treeX += (CrapRandom(x, z) - 0.5) * treeDist;
+            treeZ += (CrapRandom(x, z) - 0.5) * treeDist;
             for (let i = 0; i < 3; i++) {
 
                 chunkManager.PushVoxel({
@@ -369,12 +386,9 @@ function EntityVoxels(face, x, y, z, chunkLevel) {
     }
 }
 
-function CreateChunk(chunkX, chunkZ) {
+function _CreateChunk(chunkX, chunkZ, chunkLevel) {
     const chunkPosX = chunkSize * chunkX;
     const chunkPosZ = chunkSize * chunkZ;
-    let dist = cubeDist(chunkX, chunkZ);
-    dist = Math.max(dist, 1);
-    let chunkLevel = Math.pow(2, Math.floor(Math.log2(dist - 1)));
     chunkLevel = Math.min(Math.max(chunkLevel, 1), chunkSize);
     const nBlocks = chunkSize / chunkLevel;
     for (let i = 0; i < nBlocks; i++) {
@@ -427,13 +441,13 @@ const aInstanceColorLocations = [
 ];
 for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
     for (let chunkZ = -nChunks; chunkZ < nChunks; chunkZ++) {
-        CreateChunk(chunkX, chunkZ);
+        chunkManager.CreateChunk(chunkX, chunkZ);
     }
 }
-// 1. create voxelchunkmap
-// 2. regenerate all chunks around player in small radius (based on new correct dist) - need to loop over all
 
+// -> 
 
+const regenerateChunkSize = 32;
 
 function regenerateWorldAndUploadData() {
     const camChunkX = Math.round(cameraPos[0] / chunkSize);
@@ -441,10 +455,19 @@ function regenerateWorldAndUploadData() {
     if (camChunkX == currentChunkX && camChunkZ == currentChunkZ) {
         return;
     }
-    chunkManager.DeleteChunk(currentChunkX, currentChunkZ);
+    console.time("All Generation");
+    console.time("Rebuild Chunks");
+    for (let chunkX = -regenerateChunkSize; chunkX < regenerateChunkSize; chunkX++) {
+        for (let chunkZ = -regenerateChunkSize; chunkZ < regenerateChunkSize; chunkZ++) {
+            const regenX = chunkX + camChunkX;
+            const regenZ = chunkZ + camChunkZ;
+            chunkManager.CreateChunk(regenX, regenZ);
+        }
+    }
+    console.timeEnd("Rebuild Chunks");
+
     currentChunkX = camChunkX;
     currentChunkZ = camChunkZ;
-    console.time("All Generation");
     console.time("Voxel List");
     let voxels = Object.values(chunkManager.voxelMap);
     console.timeEnd("Voxel List");
@@ -535,9 +558,6 @@ const aspect = canvas.width / canvas.height;
 const projMatrix = perspective(Math.PI / 3, aspect, 1, maxDist * 1.5);
 gl.uniformMatrix4fv(uProjection, false, projMatrix);
 
-// --- Chunk Tracking ---
-let currentChunkX = null;
-let currentChunkZ = null;
 
 // --- Initial World Generation ---
 regenerateWorldAndUploadData();
@@ -554,7 +574,7 @@ function draw(now = 0) {
     regenerateWorldAndUploadData(); // Regenerate and re-upload everything
 
 
-    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 20;
+    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 4;
     if (cameraPos[1] < groundElevation) {
         cameraPos[1] = groundElevation;
         yVel = 0;
