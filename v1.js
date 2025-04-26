@@ -115,11 +115,11 @@ function Elevation(x, z) {
     const distToOrigin = cubeDist(x, z);
     const falloffRadius = 5000;
 
-    if (distToOrigin < falloffRadius) {
-        const fallOffAmount = distToOrigin / falloffRadius;
-        // Lerp towards 500 metres around spawn
-        height = height * fallOffAmount + 500 * (1 - fallOffAmount);
-    }
+    // if (distToOrigin < falloffRadius) {
+    //     const fallOffAmount = distToOrigin / falloffRadius;
+    //     // Lerp towards 500 metres around spawn
+    //     height = height * fallOffAmount + 500 * (1 - fallOffAmount);
+    // }
     return height;
 }
 
@@ -217,38 +217,32 @@ gl.vertexAttribPointer(aFaceIndex, 1, gl.FLOAT, false, 0, 0);
 
 // --- Color Generation ---
 const skyColor = [0.4, 0.75, 0.98];
+const MakeShadedColorFaces = (baseColor, gap) => {
+    return [
+        [baseColor[0] - gap, baseColor[1] + gap, baseColor[2]],
+        [baseColor[0] + gap, baseColor[1] - gap, baseColor[2]],
+        [baseColor[0], baseColor[1] + gap, baseColor[2] - gap],
+        [baseColor[0], baseColor[1] - gap, baseColor[2] + gap],
+        [baseColor[0] + gap, baseColor[1], baseColor[2] - gap],
+        [baseColor[0] - gap, baseColor[1], baseColor[2] + gap],
+    ];
 
+
+}
 const baseGreen = [0.3, 0.6, 0.44];
 const greenFaceGap = 0.1;
-const greenFaces = [
-    [baseGreen[0] - greenFaceGap, baseGreen[1] + greenFaceGap, baseGreen[2]],
-    [baseGreen[0] + greenFaceGap, baseGreen[1] - greenFaceGap, baseGreen[2]],
-    [baseGreen[0], baseGreen[1] + greenFaceGap, baseGreen[2] - greenFaceGap],
-    [baseGreen[0], baseGreen[1] - greenFaceGap, baseGreen[2] + greenFaceGap],
-    [baseGreen[0] + greenFaceGap, baseGreen[1], baseGreen[2] - greenFaceGap],
-    [baseGreen[0] - greenFaceGap, baseGreen[1], baseGreen[2] + greenFaceGap],
-];
+const greenFaces = MakeShadedColorFaces(baseGreen, greenFaceGap);
 
 const baseMountainGrass = [0.3, 0.4, 0.44];
 const rockFaceGap = 0.07;
-const mountainGrassFaces = [
-    [baseMountainGrass[0] - rockFaceGap, baseMountainGrass[1] + rockFaceGap, baseMountainGrass[2]],
-    [baseMountainGrass[0] + rockFaceGap, baseMountainGrass[1] - rockFaceGap, baseMountainGrass[2]],
-    [baseMountainGrass[0], baseMountainGrass[1] + rockFaceGap, baseMountainGrass[2] - rockFaceGap],
-    [baseMountainGrass[0], baseMountainGrass[1] - rockFaceGap, baseMountainGrass[2] + rockFaceGap],
-    [baseMountainGrass[0] + rockFaceGap, baseMountainGrass[1], baseMountainGrass[2] - rockFaceGap],
-    [baseMountainGrass[0] - rockFaceGap, baseMountainGrass[1], baseMountainGrass[2] + rockFaceGap],
-];
+const mountainGrassFaces = MakeShadedColorFaces(baseMountainGrass, rockFaceGap);
 const baseSnow = [0.8, 0.8, 0.8];
 const snowFaceGap = 0.07;
-const snowFaces = [
-    [baseSnow[0] - snowFaceGap, baseSnow[1] + snowFaceGap, baseSnow[2]],
-    [baseSnow[0] + snowFaceGap, baseSnow[1] - snowFaceGap, baseSnow[2]],
-    [baseSnow[0], baseSnow[1] + snowFaceGap, baseSnow[2] - snowFaceGap],
-    [baseSnow[0], baseSnow[1] - snowFaceGap, baseSnow[2] + snowFaceGap],
-    [baseSnow[0] + snowFaceGap, baseSnow[1], baseSnow[2] - snowFaceGap],
-    [baseSnow[0] - snowFaceGap, baseSnow[1], baseSnow[2] + snowFaceGap],
-];
+const snowFaces = MakeShadedColorFaces(baseSnow, snowFaceGap);
+
+const baseWood = [0.35, 0.22, 0.12];
+const woodGap = 0.04;
+const woodFaces = MakeShadedColorFaces(baseWood, woodGap);
 
 function getColor(x, z, faceIndex, elevation, steepness) {
     const dist = cubeDist(x, z);
@@ -276,14 +270,79 @@ function getColor(x, z, faceIndex, elevation, steepness) {
 }
 
 function cubeDist(x, z) { return Math.max(Math.abs(x), Math.abs(z)); }
-const EuclideanDist = (x, z) => Math.sqrt(x ** 2 + z ** 2);
+const EuclideanDist = (x, y, z) => {
+    return Math.sqrt(x ** 2 + y ** 2 + (z != undefined ? (z ** 2) : 0));
+}
 
 // --- Voxel Generation ---
 const voxels = [];
-const nChunks = 768;
+// Drop while doing trees
+const nChunks = 256;
 const chunkSize = 64;
 const maxDist = chunkSize * nChunks;
 console.log('MaxDist', maxDist);
+// needs to be quite spaced, for it to still look consistent at 16 depth
+const treeDist = 16;
+const treeRadius = 3;
+const treeHeight = 32;
+function EntityVoxels(x, y, z, chunkLevel) {
+    if ((chunkLevel <= 64)) {
+        const treeX = Math.floor(x / treeDist) * treeDist;
+        const treeZ = Math.floor(z / treeDist) * treeDist;
+        const distToTree = EuclideanDist(treeX - x, treeZ - z);
+        const treeBase = y + chunkLevel / 2;
+        if (distToTree < chunkLevel && treeX) {
+            for (let i = 0; i < 3; i++) {
+                voxels.push({
+                    x,
+                    y: treeBase + i * 4,
+                    z,
+                    faceColors: woodFaces,
+                    scale: 1
+                })
+
+            }
+            // Can I make it a decisious forest?
+            voxels.push({
+                x,
+                y: treeBase + 3 * 4 + 3 * 4 / 2,
+                z,
+                faceColors: greenFaces,
+                scale: 3
+            })
+        }
+
+
+        // const treeX = Math.round(x / treeDist) * treeDist;
+        // const treeZ = Math.round(z / treeDist) * treeDist;
+        // const treeY = Math.round(y) + bushRadius * 2;
+        // for (let i = 0; i < treeHeight / chunkLevel; i++) {
+        //     const newY = y + (i + 1) * chunkLevel;
+        //     // const distToTree = EuclideanDist(treeX - x, treeZ - z);
+
+        //     // if (distToTree < bushRadius) {
+        //     if (distToTree < 1) {
+        //         voxels.push({
+        //             x,
+        //             y: newY,
+        //             z,
+        //             faceColors: woodFaces,
+        //             scale: 1
+        //         })
+        //     }
+        // }
+        // for (let i = 1; i < 5; i++) {
+        //     voxels.push({
+        //         x,
+        //         y: y + i * chunkLevel,
+        //         z,
+        //         faceColors: mountainGrassFaces,
+        //         scale: chunkLevel
+        //     })
+        // }
+    }
+
+}
 function CreateChunk(chunkX, chunkZ) {
     const chunkPosX = chunkSize * chunkX;
     const chunkPosZ = chunkSize * chunkZ;
@@ -309,6 +368,7 @@ function CreateChunk(chunkX, chunkZ) {
                 faceColors,
                 scale: chunkLevel
             });
+            EntityVoxels(realX, yPos, realZ, chunkLevel);
         }
     }
 }
