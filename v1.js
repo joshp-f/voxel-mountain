@@ -1,4 +1,3 @@
-
 const canvas = document.getElementById("glcanvas");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -7,46 +6,46 @@ const gl = canvas.getContext("webgl2");
 
 // WebGL2 Shaders
 const vertexShaderSource = `#version 300 es
-                in vec3 aPosition;
-                in float aFaceIndex; // Index (0-5) to select the correct face color
-                in vec3 aInstancePosition;
-                in vec3 aInstanceColor0; // Color for face 0 (Front)
-                in vec3 aInstanceColor1; // Color for face 1 (Back)
-                in vec3 aInstanceColor2; // Color for face 2 (Top)
-                in vec3 aInstanceColor3; // Color for face 3 (Bottom)
-                in vec3 aInstanceColor4; // Color for face 4 (Right)
-                in vec3 aInstanceColor5; // Color for face 5 (Left)
-                in float aInstanceScale;
+in vec3 aPosition;
+in float aFaceIndex; // Index (0-5) to select the correct face color
+in vec3 aInstancePosition;
+in vec3 aInstanceColor0; // Color for face 0 (Front)
+in vec3 aInstanceColor1; // Color for face 1 (Back)
+in vec3 aInstanceColor2; // Color for face 2 (Top)
+in vec3 aInstanceColor3; // Color for face 3 (Bottom)
+in vec3 aInstanceColor4; // Color for face 4 (Right)
+in vec3 aInstanceColor5; // Color for face 5 (Left)
+in float aInstanceScale;
 
-                uniform mat4 uProjection;
-                uniform mat4 uView;
+uniform mat4 uProjection;
+uniform mat4 uView;
 
-                out vec3 vColor; // Use 'out' instead of 'varying'
+out vec3 vColor; // Use 'out' instead of 'varying'
 
-                void main() {
-                    vec3 scaledPosition = aPosition * aInstanceScale;
-                gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
+void main() {
+        vec3 scaledPosition = aPosition * aInstanceScale;
+        gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
 
-                // Select the face color based on the face index
-                if (aFaceIndex < 0.5) {vColor = aInstanceColor0; }
-                else if (aFaceIndex < 1.5) {vColor = aInstanceColor1; }
-                else if (aFaceIndex < 2.5) {vColor = aInstanceColor2; }
-                else if (aFaceIndex < 3.5) {vColor = aInstanceColor3; }
-                else if (aFaceIndex < 4.5) {vColor = aInstanceColor4; }
-                else {vColor = aInstanceColor5; }
+        // Select the face color based on the face index
+        if (aFaceIndex < 0.5) {vColor = aInstanceColor0; }
+        else if (aFaceIndex < 1.5) {vColor = aInstanceColor1; }
+        else if (aFaceIndex < 2.5) {vColor = aInstanceColor2; }
+        else if (aFaceIndex < 3.5) {vColor = aInstanceColor3; }
+        else if (aFaceIndex < 4.5) {vColor = aInstanceColor4; }
+        else {vColor = aInstanceColor5; }
 }
-                `;
+`;
 
 const fragmentShaderSource = `#version 300 es
-                precision mediump float;
-                in vec3 vColor; // Use 'in' instead of 'varying'
+precision mediump float;
+in vec3 vColor; // Use 'in' instead of 'varying'
 
-                out vec4 fragColor; // Define output color variable
+out vec4 fragColor; // Define output color variable
 
-                void main() {
-                    fragColor = vec4(vColor, 1.0); // Assign to output variable
+void main() {
+        fragColor = vec4(vColor, 1.0); // Assign to output variable
 }
-                `;
+`;
 
 // --- Camera and Controls ---
 
@@ -81,7 +80,7 @@ document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
 function updateCamera(deltaTime) {
-    const speed = 500 * deltaTime;
+    const speed = 50 * deltaTime;
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
@@ -188,7 +187,6 @@ const cubeVertices = new Float32Array([
 const CUBE_VERTEX_COUNT = 36;
 
 // --- Create Vertex Array Object (VAO) ---
-// VAOs encapsulate buffer bindings and attribute configurations
 const vao = gl.createVertexArray();
 gl.bindVertexArray(vao);
 
@@ -227,8 +225,6 @@ const MakeShadedColorFaces = (baseColor, gap) => {
         [baseColor[0] + gap, baseColor[1], baseColor[2] - gap],
         [baseColor[0] - gap, baseColor[1], baseColor[2] + gap],
     ];
-
-
 }
 const baseGreen = [0.3, 0.6, 0.44];
 const greenFaceGap = 0.1;
@@ -264,12 +260,9 @@ const faceMap = {
 
 function pickFaces(elevation, steepness) {
     let face = 'pine';
-    // elevation + steepness makes jagged border
     if (steepness > 1.1 || (elevation + steepness * 200) > 1500) {
         face = 'mountain';
     }
-
-    // elevation + steepness makes jagged border
     if (((elevation - steepness * 200) > 1500) && steepness < 1.1) {
         face = 'snow';
     }
@@ -307,16 +300,43 @@ const EuclideanDist = (x, y, z) => {
 }
 
 // --- Voxel Generation ---
-const voxels = [];
-// Drop while doing trees
+class ChunkManager {
+    constructor() {
+        this.voxelCounter = 0;
+        this.chunkMap = {};
+        this.voxelMap = {};
+    }
+    PushVoxel(voxel) {
+        const chunkX = Math.floor(voxel.x / chunkSize);
+        const chunkZ = Math.floor(voxel.z / chunkSize);
+        const chunkId = `${chunkX}-${chunkZ}`
+
+        this.voxelMap[this.voxelCounter] = voxel;
+        if (!(chunkId in this.chunkMap)) this.chunkMap[chunkId] = [];
+        this.chunkMap[chunkId].push(this.voxelCounter);
+        this.voxelCounter++;
+    }
+    DeleteChunk(chunkX, chunkZ) {
+        const chunkId = `${chunkX}-${chunkZ}`
+        if (chunkId in this.chunkMap) {
+            for (const id of this.chunkMap[chunkId]) {
+                delete this.voxelMap[id];
+            }
+            delete this.chunkMap[chunkId];
+        }
+    }
+}
+const chunkManager = new ChunkManager();
 const nChunks = 256;
 const chunkSize = 64;
 const maxDist = chunkSize * nChunks;
 console.log('MaxDist', maxDist);
-// needs to be quite spaced, for it to still look consistent at 16 depth
 const treeDist = 16;
 const treeRadius = 3;
 const treeHeight = 32;
+
+let numInstances = 0; // Will be updated in regenerateWorldAndUploadData
+
 function EntityVoxels(face, x, y, z, chunkLevel) {
     if (face === 'pine' && (chunkLevel <= treeDist)) {
         let treeX = Math.floor(x / treeDist) * treeDist;
@@ -327,7 +347,8 @@ function EntityVoxels(face, x, y, z, chunkLevel) {
             treeX += (Math.random() - 0.5) * treeDist;
             treeZ += (Math.random() - 0.5) * treeDist;
             for (let i = 0; i < 3; i++) {
-                voxels.push({
+
+                chunkManager.PushVoxel({
                     x: treeX,
                     y: treeBase + i * 4,
                     z: treeZ,
@@ -336,9 +357,8 @@ function EntityVoxels(face, x, y, z, chunkLevel) {
                 })
 
             }
-            // Can I make it a decisious forest?
             const leafSize = 5
-            voxels.push({
+            chunkManager.PushVoxel({
                 x: treeX,
                 y: treeBase + 3 * 4 + leafSize * 4 / 2,
                 z: treeZ,
@@ -346,38 +366,9 @@ function EntityVoxels(face, x, y, z, chunkLevel) {
                 scale: leafSize
             })
         }
-
-
-        // const treeX = Math.round(x / treeDist) * treeDist;
-        // const treeZ = Math.round(z / treeDist) * treeDist;
-        // const treeY = Math.round(y) + bushRadius * 2;
-        // for (let i = 0; i < treeHeight / chunkLevel; i++) {
-        //     const newY = y + (i + 1) * chunkLevel;
-        //     // const distToTree = EuclideanDist(treeX - x, treeZ - z);
-
-        //     // if (distToTree < bushRadius) {
-        //     if (distToTree < 1) {
-        //         voxels.push({
-        //             x,
-        //             y: newY,
-        //             z,
-        //             faceColors: woodFaces,
-        //             scale: 1
-        //         })
-        //     }
-        // }
-        // for (let i = 1; i < 5; i++) {
-        //     voxels.push({
-        //         x,
-        //         y: y + i * chunkLevel,
-        //         z,
-        //         faceColors: mountainGrassFaces,
-        //         scale: chunkLevel
-        //     })
-        // }
     }
-
 }
+
 function CreateChunk(chunkX, chunkZ) {
     const chunkPosX = chunkSize * chunkX;
     const chunkPosZ = chunkSize * chunkZ;
@@ -395,7 +386,7 @@ function CreateChunk(chunkX, chunkZ) {
             const face = pickFaces(yPos, steepness);
             const faceColors = getFaceColors(realX, realZ, face);
 
-            voxels.push({
+            chunkManager.PushVoxel({
                 x: realX,
                 y: yPos,
                 z: realZ,
@@ -406,62 +397,21 @@ function CreateChunk(chunkX, chunkZ) {
         }
     }
 }
-for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
-    for (let chunkZ = -nChunks; chunkZ < nChunks; chunkZ++) {
-        CreateChunk(chunkX, chunkZ);
-    }
-}
-const numInstances = voxels.length;
-console.log("Number of voxels:", numInstances);
 
-// Set initial camera height based on terrain at origin
-
-// --- Instance Data Buffers ---
-const instancePositions = new Float32Array(numInstances * 3);
-const instanceScales = new Float32Array(numInstances);
-const instanceColors0 = new Float32Array(numInstances * 3);
-const instanceColors1 = new Float32Array(numInstances * 3);
-const instanceColors2 = new Float32Array(numInstances * 3);
-const instanceColors3 = new Float32Array(numInstances * 3);
-const instanceColors4 = new Float32Array(numInstances * 3);
-const instanceColors5 = new Float32Array(numInstances * 3);
-
-voxels.forEach((voxel, i) => {
-    instancePositions[i * 3 + 0] = voxel.x;
-    instancePositions[i * 3 + 1] = voxel.y;
-    instancePositions[i * 3 + 2] = voxel.z;
-    instanceScales[i] = voxel.scale;
-    for (let face = 0; face < 6; face++) {
-        const colorArr = [instanceColors0, instanceColors1, instanceColors2, instanceColors3, instanceColors4, instanceColors5][face];
-        const color = voxel.faceColors[face];
-        colorArr[i * 3 + 0] = color[0];
-        colorArr[i * 3 + 1] = color[1];
-        colorArr[i * 3 + 2] = color[2];
-    }
-});
-
-// --- Create Instance Buffers ---
+// --- Instance Buffers (Declare handles here) ---
 const instancePositionBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionBuffer);
-gl.bufferData(gl.ARRAY_BUFFER, instancePositions, gl.STATIC_DRAW);
-
 const instanceScaleBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
-gl.bufferData(gl.ARRAY_BUFFER, instanceScales, gl.STATIC_DRAW);
+const instanceColorBuffer0 = gl.createBuffer();
+const instanceColorBuffer1 = gl.createBuffer();
+const instanceColorBuffer2 = gl.createBuffer();
+const instanceColorBuffer3 = gl.createBuffer();
+const instanceColorBuffer4 = gl.createBuffer();
+const instanceColorBuffer5 = gl.createBuffer();
 
-function createInstanceColorBuffer(gl, data) {
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    return buffer;
-}
-
-const instanceColorBuffer0 = createInstanceColorBuffer(gl, instanceColors0);
-const instanceColorBuffer1 = createInstanceColorBuffer(gl, instanceColors1);
-const instanceColorBuffer2 = createInstanceColorBuffer(gl, instanceColors2);
-const instanceColorBuffer3 = createInstanceColorBuffer(gl, instanceColors3);
-const instanceColorBuffer4 = createInstanceColorBuffer(gl, instanceColors4);
-const instanceColorBuffer5 = createInstanceColorBuffer(gl, instanceColors5);
+const instanceColorBuffers = [
+    instanceColorBuffer0, instanceColorBuffer1, instanceColorBuffer2,
+    instanceColorBuffer3, instanceColorBuffer4, instanceColorBuffer5
+];
 
 
 // --- Get Attribute Locations ---
@@ -475,38 +425,105 @@ const aInstanceColorLocations = [
     gl.getAttribLocation(program, "aInstanceColor4"),
     gl.getAttribLocation(program, "aInstanceColor5"),
 ];
-const instanceColorBuffers = [
-    instanceColorBuffer0, instanceColorBuffer1, instanceColorBuffer2,
-    instanceColorBuffer3, instanceColorBuffer4, instanceColorBuffer5
-];
+for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
+    for (let chunkZ = -nChunks; chunkZ < nChunks; chunkZ++) {
+        CreateChunk(chunkX, chunkZ);
+    }
+}
+// 1. create voxelchunkmap
+// 2. regenerate all chunks around player in small radius (based on new correct dist) - need to loop over all
+
+
+
+function regenerateWorldAndUploadData() {
+    const camChunkX = Math.round(cameraPos[0] / chunkSize);
+    const camChunkZ = Math.round(cameraPos[2] / chunkSize);
+    if (camChunkX == currentChunkX && camChunkZ == currentChunkZ) {
+        return;
+    }
+    chunkManager.DeleteChunk(currentChunkX, currentChunkZ);
+    currentChunkX = camChunkX;
+    currentChunkZ = camChunkZ;
+    console.time("All Generation");
+    console.time("Voxel List");
+    let voxels = Object.values(chunkManager.voxelMap);
+    console.timeEnd("Voxel List");
+
+    numInstances = voxels.length;
+    console.log("Regenerated Voxels:", numInstances);
+    if (numInstances === 0) return; // Avoid errors if no voxels generated
+    console.time("Array Creation");
+    const instancePositions = new Float32Array(numInstances * 3);
+    const instanceScales = new Float32Array(numInstances);
+    const instanceColors0 = new Float32Array(numInstances * 3);
+    const instanceColors1 = new Float32Array(numInstances * 3);
+    const instanceColors2 = new Float32Array(numInstances * 3);
+    const instanceColors3 = new Float32Array(numInstances * 3);
+    const instanceColors4 = new Float32Array(numInstances * 3);
+    const instanceColors5 = new Float32Array(numInstances * 3);
+    const instanceColorArrays = [instanceColors0, instanceColors1, instanceColors2, instanceColors3, instanceColors4, instanceColors5];
+    console.timeEnd("Array Creation");
+    console.time("Matrix Filling");
+    voxels.forEach((voxel, i) => {
+        instancePositions[i * 3 + 0] = voxel.x;
+        instancePositions[i * 3 + 1] = voxel.y;
+        instancePositions[i * 3 + 2] = voxel.z;
+        instanceScales[i] = voxel.scale;
+        for (let face = 0; face < 6; face++) {
+            const colorArr = instanceColorArrays[face];
+            const color = voxel.faceColors[face];
+            colorArr[i * 3 + 0] = color[0];
+            colorArr[i * 3 + 1] = color[1];
+            colorArr[i * 3 + 2] = color[2];
+        }
+    });
+    console.timeEnd("Matrix Filling");
+    console.time("Buffer Upload");
+    gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, instancePositions, gl.DYNAMIC_DRAW);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, instanceScales, gl.DYNAMIC_DRAW);
+
+    for (let i = 0; i < 6; i++) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, instanceColorBuffers[i]);
+        gl.bufferData(gl.ARRAY_BUFFER, instanceColorArrays[i], gl.DYNAMIC_DRAW);
+    }
+    console.timeEnd("Buffer Upload");
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind
+    console.timeEnd("All Generation");
+}
+
 
 // --- Set Instance Attribute Pointers (within the VAO setup) ---
+gl.bindVertexArray(vao); // Bind VAO once here
+
 gl.enableVertexAttribArray(aInstancePosition);
 gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionBuffer);
 gl.vertexAttribPointer(aInstancePosition, 3, gl.FLOAT, false, 0, 0);
-gl.vertexAttribDivisor(aInstancePosition, 1); // Use WebGL2 native instancing
+gl.vertexAttribDivisor(aInstancePosition, 1);
 
 gl.enableVertexAttribArray(aInstanceScale);
 gl.bindBuffer(gl.ARRAY_BUFFER, instanceScaleBuffer);
 gl.vertexAttribPointer(aInstanceScale, 1, gl.FLOAT, false, 0, 0);
-gl.vertexAttribDivisor(aInstanceScale, 1); // Use WebGL2 native instancing
+gl.vertexAttribDivisor(aInstanceScale, 1);
 
 for (let i = 0; i < 6; i++) {
     const loc = aInstanceColorLocations[i];
     const buffer = instanceColorBuffers[i];
     if (loc !== -1) {
         gl.enableVertexAttribArray(loc);
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer); // Bind correct buffer
         gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
-        gl.vertexAttribDivisor(loc, 1); // Use WebGL2 native instancing
+        gl.vertexAttribDivisor(loc, 1);
     } else {
         console.warn(`Attribute aInstanceColor${i} not found in shader.`);
     }
 }
 
-// Unbind the VAO after setup
+// Unbind the VAO and ARRAY_BUFFER after setup
 gl.bindVertexArray(null);
-// Unbind ARRAY_BUFFER as well, good practice
 gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
 
@@ -515,9 +532,15 @@ const uProjection = gl.getUniformLocation(program, "uProjection");
 const uView = gl.getUniformLocation(program, "uView");
 
 const aspect = canvas.width / canvas.height;
-// For now , keep near plane really high, because it means depth buffer solves clipping issues at large range
 const projMatrix = perspective(Math.PI / 3, aspect, 1, maxDist * 1.5);
 gl.uniformMatrix4fv(uProjection, false, projMatrix);
+
+// --- Chunk Tracking ---
+let currentChunkX = null;
+let currentChunkZ = null;
+
+// --- Initial World Generation ---
+regenerateWorldAndUploadData();
 
 // --- Draw Loop ---
 let lastTime = 0;
@@ -526,6 +549,11 @@ function draw(now = 0) {
     lastTime = now;
 
     updateCamera(deltaTime);
+
+
+    regenerateWorldAndUploadData(); // Regenerate and re-upload everything
+
+
     const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 20;
     if (cameraPos[1] < groundElevation) {
         cameraPos[1] = groundElevation;
@@ -543,22 +571,20 @@ function draw(now = 0) {
     gl.enable(gl.DEPTH_TEST);
     gl.viewport(0, 0, canvas.width, canvas.height);
 
-    // Bind the VAO. This restores all vertex attribute state.
     gl.bindVertexArray(vao);
 
-    // Perform the instanced draw call using WebGL2 native function
-    gl.drawArraysInstanced(
-        gl.TRIANGLES,          // primitive type
-        0,                      // offset
-        CUBE_VERTEX_COUNT,      // number of vertices per instance
-        numInstances            // number of instances
-    );
+    if (numInstances > 0) { // Only draw if there are instances
+        gl.drawArraysInstanced(
+            gl.TRIANGLES,          // primitive type
+            0,                     // offset
+            CUBE_VERTEX_COUNT,     // number of vertices per instance
+            numInstances           // number of instances
+        );
+    }
 
-    // Unbind the VAO after drawing (optional but good practice)
     gl.bindVertexArray(null);
 
     requestAnimationFrame(draw);
 }
 
-// No need to bind/set pointers again here, VAO handles it.
 draw(); // Start the rendering loop
