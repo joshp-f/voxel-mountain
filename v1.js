@@ -233,8 +233,8 @@ const baseGreen = [0.3, 0.6, 0.44];
 const greenFaceGap = 0.1;
 const greenFaces = MakeShadedColorFaces(baseGreen, greenFaceGap);
 
-const baseMountainGrass = [0.3, 0.4, 0.44];
-const rockFaceGap = 0.07;
+const baseMountainGrass = [0.376, 0.376, 0.376];
+const rockFaceGap = 0.04;
 const mountainGrassFaces = MakeShadedColorFaces(baseMountainGrass, rockFaceGap);
 const baseSnow = [0.8, 0.8, 0.8];
 const snowFaceGap = 0.07;
@@ -244,8 +244,11 @@ const baseWood = [0.35, 0.22, 0.12];
 const woodGap = 0.04;
 const woodFaces = MakeShadedColorFaces(baseWood, woodGap);
 
-function getColor(x, z, faceIndex, elevation, steepness) {
-    const dist = cubeDist(x, z);
+const basPineLeaf = [0.165, 0.361, 0.227];
+const pineGap = 0.04;
+const pineFaces = MakeShadedColorFaces(basPineLeaf, pineGap);
+
+function pickFaces(elevation, steepness) {
     let faces = greenFaces;
     // elevation + steepness makes jagged border
     if (steepness > 1 || (elevation + steepness * 200) > 1000) {
@@ -256,9 +259,15 @@ function getColor(x, z, faceIndex, elevation, steepness) {
     if (((elevation - steepness * 200) > 1500) && steepness < 0.75) {
         faces = snowFaces;
     }
+    return faces
+}
+
+function getColor(x, z, faces, faceIndex) {
+    const dist = cubeDist(x, z);
+
     const baseColor = faces[faceIndex];
-    const baseColorVariance = 0.5;
-    const varianceDropedOff = baseColorVariance * (1 / (dist / 1000 + 1));
+    const baseColorVariance = 0.4;
+    const varianceDropedOff = baseColorVariance * (1 / (dist / 1500 + 1));
 
     const color = baseColor.map((v, i) => {
         const modifier = (1 + (Math.random() - 0.5) * varianceDropedOff);
@@ -267,6 +276,14 @@ function getColor(x, z, faceIndex, elevation, steepness) {
     const nonFog = 1 / (dist / 25000 + 1);
     let foggedColor = color.map((c, i) => skyColor[i] * (1 - nonFog) + c * nonFog);
     return foggedColor;
+}
+
+function getFaceColors(x, z, faces) {
+    let faceColors = [];
+    for (let face = 0; face < 6; face++) {
+        faceColors.push(getColor(x, z, faces, face));
+    }
+    return faceColors
 }
 
 function cubeDist(x, z) { return Math.max(Math.abs(x), Math.abs(z)); }
@@ -282,33 +299,36 @@ const chunkSize = 64;
 const maxDist = chunkSize * nChunks;
 console.log('MaxDist', maxDist);
 // needs to be quite spaced, for it to still look consistent at 16 depth
-const treeDist = 16;
+const treeDist = 8;
 const treeRadius = 3;
 const treeHeight = 32;
 function EntityVoxels(x, y, z, chunkLevel) {
-    if ((chunkLevel <= 64)) {
-        const treeX = Math.floor(x / treeDist) * treeDist;
-        const treeZ = Math.floor(z / treeDist) * treeDist;
+    if ((chunkLevel <= treeDist)) {
+        let treeX = Math.floor(x / treeDist) * treeDist;
+        let treeZ = Math.floor(z / treeDist) * treeDist;
         const distToTree = EuclideanDist(treeX - x, treeZ - z);
         const treeBase = y + chunkLevel / 2;
         if (distToTree < chunkLevel && treeX) {
+            treeX += (Math.random() - 0.5) * treeDist;
+            treeZ += (Math.random() - 0.5) * treeDist;
             for (let i = 0; i < 3; i++) {
                 voxels.push({
-                    x,
+                    x: treeX,
                     y: treeBase + i * 4,
-                    z,
+                    z: treeZ,
                     faceColors: woodFaces,
                     scale: 1
                 })
 
             }
             // Can I make it a decisious forest?
+            const leafSize = 5
             voxels.push({
-                x,
-                y: treeBase + 3 * 4 + 3 * 4 / 2,
-                z,
-                faceColors: greenFaces,
-                scale: 3
+                x: treeX,
+                y: treeBase + 3 * 4 + leafSize * 4 / 2,
+                z: treeZ,
+                faceColors: getFaceColors(treeX, treeZ, pineFaces),
+                scale: leafSize
             })
         }
 
@@ -357,10 +377,9 @@ function CreateChunk(chunkX, chunkZ) {
             const realZ = chunkPosZ + j * chunkLevel;
             const yPos = Elevation(realX, realZ);
             const steepness = Steepness(realX, realZ);
-            const faceColors = [];
-            for (let face = 0; face < 6; face++) {
-                faceColors.push(getColor(realX, realZ, face, yPos, steepness));
-            }
+            const faces = pickFaces(yPos, steepness);
+            const faceColors = getFaceColors(realX, realZ, faces);
+
             voxels.push({
                 x: realX,
                 y: yPos,
