@@ -81,7 +81,7 @@ document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
 function updateCamera(deltaTime) {
-    const speed = 50 * deltaTime;
+    const speed = 500 * deltaTime;
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
@@ -249,12 +249,17 @@ const basPineLeaf = [0.165, 0.361, 0.227];
 const pineGap = 0.04;
 const pineFaces = MakeShadedColorFaces(basPineLeaf, pineGap);
 
+const basePath = [0.545, 0.353, 0.169];
+const pathGap = 0.04;
+const pathFaces = MakeShadedColorFaces(basePath, pathGap);
+
 const faceMap = {
     green: greenFaces,
     mountain: mountainGrassFaces,
     snow: snowFaces,
     wood: woodFaces,
-    pine: pineFaces
+    pine: pineFaces,
+    path: pathFaces
 }
 
 function pickFaces(elevation, steepness) {
@@ -265,9 +270,10 @@ function pickFaces(elevation, steepness) {
     }
 
     // elevation + steepness makes jagged border
-    if (((elevation - steepness * 200) > 1500) && steepness < 0.75) {
+    if (((elevation - steepness * 200) > 1500) && steepness < 1.1) {
         face = 'snow';
     }
+    if (elevation > 400 && elevation < 405) face = 'path';
     return face;
 }
 
