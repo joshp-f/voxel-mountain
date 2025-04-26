@@ -248,23 +248,31 @@ const basPineLeaf = [0.165, 0.361, 0.227];
 const pineGap = 0.04;
 const pineFaces = MakeShadedColorFaces(basPineLeaf, pineGap);
 
+const faceMap = {
+    green: greenFaces,
+    mountain: mountainGrassFaces,
+    snow: snowFaces,
+    wood: woodFaces,
+    pine: pineFaces
+}
+
 function pickFaces(elevation, steepness) {
-    let faces = greenFaces;
+    let face = 'pine';
     // elevation + steepness makes jagged border
-    if (steepness > 1 || (elevation + steepness * 200) > 1000) {
-        faces = mountainGrassFaces;
+    if (steepness > 1.1 || (elevation + steepness * 200) > 1500) {
+        face = 'mountain';
     }
 
     // elevation + steepness makes jagged border
     if (((elevation - steepness * 200) > 1500) && steepness < 0.75) {
-        faces = snowFaces;
+        face = 'snow';
     }
-    return faces
+    return face;
 }
 
-function getColor(x, z, faces, faceIndex) {
+function getColor(x, z, face, faceIndex) {
     const dist = cubeDist(x, z);
-
+    const faces = faceMap[face];
     const baseColor = faces[faceIndex];
     const baseColorVariance = 0.4;
     const varianceDropedOff = baseColorVariance * (1 / (dist / 1500 + 1));
@@ -278,10 +286,10 @@ function getColor(x, z, faces, faceIndex) {
     return foggedColor;
 }
 
-function getFaceColors(x, z, faces) {
+function getFaceColors(x, z, face) {
     let faceColors = [];
-    for (let face = 0; face < 6; face++) {
-        faceColors.push(getColor(x, z, faces, face));
+    for (let faceId = 0; faceId < 6; faceId++) {
+        faceColors.push(getColor(x, z, face, faceId));
     }
     return faceColors
 }
@@ -299,11 +307,11 @@ const chunkSize = 64;
 const maxDist = chunkSize * nChunks;
 console.log('MaxDist', maxDist);
 // needs to be quite spaced, for it to still look consistent at 16 depth
-const treeDist = 8;
+const treeDist = 16;
 const treeRadius = 3;
 const treeHeight = 32;
-function EntityVoxels(x, y, z, chunkLevel) {
-    if ((chunkLevel <= treeDist)) {
+function EntityVoxels(face, x, y, z, chunkLevel) {
+    if (face === 'pine' && (chunkLevel <= treeDist)) {
         let treeX = Math.floor(x / treeDist) * treeDist;
         let treeZ = Math.floor(z / treeDist) * treeDist;
         const distToTree = EuclideanDist(treeX - x, treeZ - z);
@@ -327,7 +335,7 @@ function EntityVoxels(x, y, z, chunkLevel) {
                 x: treeX,
                 y: treeBase + 3 * 4 + leafSize * 4 / 2,
                 z: treeZ,
-                faceColors: getFaceColors(treeX, treeZ, pineFaces),
+                faceColors: getFaceColors(treeX, treeZ, 'pine'),
                 scale: leafSize
             })
         }
@@ -377,8 +385,8 @@ function CreateChunk(chunkX, chunkZ) {
             const realZ = chunkPosZ + j * chunkLevel;
             const yPos = Elevation(realX, realZ);
             const steepness = Steepness(realX, realZ);
-            const faces = pickFaces(yPos, steepness);
-            const faceColors = getFaceColors(realX, realZ, faces);
+            const face = pickFaces(yPos, steepness);
+            const faceColors = getFaceColors(realX, realZ, face);
 
             voxels.push({
                 x: realX,
@@ -387,7 +395,7 @@ function CreateChunk(chunkX, chunkZ) {
                 faceColors,
                 scale: chunkLevel
             });
-            EntityVoxels(realX, yPos, realZ, chunkLevel);
+            EntityVoxels(face, realX, yPos, realZ, chunkLevel);
         }
     }
 }
