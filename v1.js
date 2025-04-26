@@ -52,6 +52,7 @@ void main() {
 let cameraPos = [0, Elevation(0, 5) + 10, 5];
 let currentChunkX = 0;
 let currentChunkZ = 0;
+let firstLoadDone = false;
 let yVel = 0;
 let cameraFront = [0, 0, -1];
 let cameraUp = [0, 1, 0];
@@ -81,8 +82,10 @@ document.addEventListener("mousemove", (e) => {
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
+let isSprinting = false;
 function updateCamera(deltaTime) {
-    const speed = 50 * deltaTime;
+    isSprinting = keys["shift"];
+    const speed = 10 * (isSprinting ? 2 : 1) * deltaTime;
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
@@ -91,8 +94,8 @@ function updateCamera(deltaTime) {
     if (keys["s"]) cameraPos = add(cameraPos, scale(forward, -speed));
     if (keys["a"]) cameraPos = add(cameraPos, scale(right, -speed));
     if (keys["d"]) cameraPos = add(cameraPos, scale(right, speed));
-    if (keys[" "]) cameraPos = add(cameraPos, scale([0, 1, 0], speed)); // Move along world Y
-    if (keys["shift"]) cameraPos = add(cameraPos, scale([0, 1, 0], -speed)); // Move along world Y
+    if (keys[" "]) cameraPos = add(cameraPos, scale([0, 1, 0], 30 * deltaTime)); // jump - strength must be against gravity
+    // if (keys["shift"]) cameraPos = add(cameraPos, scale([0, 1, 0], -speed)); // Move along world Y
 }
 // --- End Camera ---
 
@@ -447,14 +450,15 @@ for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
 
 // -> 
 
-const regenerateChunkSize = 32;
+const regenerateChunkSize = 64;
 
 function regenerateWorldAndUploadData() {
     const camChunkX = Math.round(cameraPos[0] / chunkSize);
     const camChunkZ = Math.round(cameraPos[2] / chunkSize);
-    if (camChunkX == currentChunkX && camChunkZ == currentChunkZ) {
+    if (camChunkX == currentChunkX && camChunkZ == currentChunkZ && firstLoadDone === true) {
         return;
     }
+    firstLoadDone = true;
     console.time("All Generation");
     console.time("Rebuild Chunks");
     for (let chunkX = -regenerateChunkSize; chunkX < regenerateChunkSize; chunkX++) {
@@ -574,7 +578,7 @@ function draw(now = 0) {
     regenerateWorldAndUploadData(); // Regenerate and re-upload everything
 
 
-    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 4;
+    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 3;
     if (cameraPos[1] < groundElevation) {
         cameraPos[1] = groundElevation;
         yVel = 0;
