@@ -85,7 +85,7 @@ document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 let isSprinting = false;
 function updateCamera(deltaTime) {
     isSprinting = keys["shift"];
-    const speed = 10 * (isSprinting ? 2 : 1) * deltaTime;
+    const speed = 100 * (isSprinting ? 2 : 1) * deltaTime;
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
@@ -264,22 +264,29 @@ const faceMap = {
 }
 
 function pickFaces(elevation, steepness) {
-    let face = 'pine';
-    if (steepness > 1.1 || (elevation + steepness * 200) > 1500) {
+    let face = 'green';
+    if (steepness + (elevation / 4000) < 1) face = 'pine';
+    // Dont use harsh cut offs, use gradients, looks nicer
+    if (steepness + (elevation / 8000) > 1) {
         face = 'mountain';
     }
-    if (((elevation - steepness * 200) > 1500) && steepness < 1.1) {
+    if ((steepness - elevation / 1000) < -1) {
         face = 'snow';
     }
     if (elevation > 400 && elevation < 405) face = 'path';
     return face;
 }
 
-function getColor(x, z, face, faceIndex) {
+function getColor(x, z, face, faceIndex, chunkLevel) {
+    if (chunkLevel <= HIGH_FIDELITY_LEVEL) {
+        if (face === "pine") {
+            face = "green";
+        }
+    }
     const dist = cubeDist(x, z);
     const faces = faceMap[face];
     const baseColor = faces[faceIndex];
-    const baseColorVariance = 0.4;
+    const baseColorVariance = 0.5;
     const varianceDropedOff = baseColorVariance * (1 / (dist / 1500 + 1));
 
     const color = baseColor.map((v, i) => {
@@ -291,10 +298,10 @@ function getColor(x, z, face, faceIndex) {
     return foggedColor;
 }
 
-function getFaceColors(x, z, face) {
+function getFaceColors(x, z, face, chunkLevel) {
     let faceColors = [];
     for (let faceId = 0; faceId < 6; faceId++) {
-        faceColors.push(getColor(x, z, face, faceId));
+        faceColors.push(getColor(x, z, face, faceId, chunkLevel));
     }
     return faceColors
 }
@@ -348,43 +355,57 @@ const nChunks = 256;
 const chunkSize = 64;
 const maxDist = chunkSize * nChunks;
 console.log('MaxDist', maxDist);
-const treeDist = 16;
+// Creates artifacts :( Need to create double density probably
 const treeRadius = 3;
 const treeHeight = 32;
 
 let numInstances = 0; // Will be updated in regenerateWorldAndUploadData
 function CrapRandom(x, z) {
-    return noise.simplex2(x, z);
+    return (noise.simplex2(x, z) + 1) / 2;
 
 }
+const HIGH_FIDELITY_LEVEL = 16;
+const treeDist = HIGH_FIDELITY_LEVEL;
 function EntityVoxels(face, x, y, z, chunkLevel) {
-    if (face === 'pine' && (chunkLevel <= treeDist)) {
+    if (chunkLevel > HIGH_FIDELITY_LEVEL) return;
+    if (face === 'pine') {
         let treeX = Math.floor(x / treeDist) * treeDist;
         let treeZ = Math.floor(z / treeDist) * treeDist;
         const distToTree = EuclideanDist(treeX - x, treeZ - z);
         const treeBase = y + chunkLevel / 2;
         if (distToTree < chunkLevel && treeX) {
-            treeX += (CrapRandom(x, z) - 0.5) * treeDist;
-            treeZ += (CrapRandom(x, z) - 0.5) * treeDist;
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < 4; i++) {
+                const treeSize = CrapRandom(x + i, z + i);
+                treeX += (CrapRandom(x + i, z + i) - 0.5) * treeDist;
+                treeZ += (CrapRandom(x + i, z + i) - 0.5) * treeDist;
+                for (let i = 0; i < 3; i++) {
 
+                    chunkManager.PushVoxel({
+                        x: treeX,
+                        y: treeBase + i * 4 * treeSize,
+                        z: treeZ,
+                        faceColors: woodFaces,
+                        scale: 1 * treeSize
+                    })
+
+                }
+                const leafSize = 7
                 chunkManager.PushVoxel({
                     x: treeX,
-                    y: treeBase + i * 4,
+                    y: treeBase + (3 * 4 + leafSize * 2) * treeSize,
                     z: treeZ,
-                    faceColors: woodFaces,
-                    scale: 1
+                    faceColors: getFaceColors(treeX, treeZ, 'pine'),
+                    scale: leafSize * treeSize
                 })
-
+                chunkManager.PushVoxel({
+                    x: treeX,
+                    y: treeBase + (3 * 4 + leafSize * 3.5) * treeSize,
+                    z: treeZ,
+                    faceColors: getFaceColors(treeX, treeZ, 'pine'),
+                    scale: (leafSize * 0.5) * treeSize
+                })
             }
-            const leafSize = 5
-            chunkManager.PushVoxel({
-                x: treeX,
-                y: treeBase + 3 * 4 + leafSize * 4 / 2,
-                z: treeZ,
-                faceColors: getFaceColors(treeX, treeZ, 'pine'),
-                scale: leafSize
-            })
+
         }
     }
 }
@@ -401,7 +422,7 @@ function _CreateChunk(chunkX, chunkZ, chunkLevel) {
             const yPos = Elevation(realX, realZ);
             const steepness = Steepness(realX, realZ);
             const face = pickFaces(yPos, steepness);
-            const faceColors = getFaceColors(realX, realZ, face);
+            const faceColors = getFaceColors(realX, realZ, face, chunkLevel);
 
             chunkManager.PushVoxel({
                 x: realX,
