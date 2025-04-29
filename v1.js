@@ -23,16 +23,16 @@ uniform mat4 uView;
 out vec3 vColor; // Use 'out' instead of 'varying'
 
 void main() {
-        vec3 scaledPosition = aPosition * aInstanceScale;
-        gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
+vec3 scaledPosition = aPosition * aInstanceScale;
+ gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
 
-        // Select the face color based on the face index
-        if (aFaceIndex < 0.5) {vColor = aInstanceColor0; }
-        else if (aFaceIndex < 1.5) {vColor = aInstanceColor1; }
-        else if (aFaceIndex < 2.5) {vColor = aInstanceColor2; }
-        else if (aFaceIndex < 3.5) {vColor = aInstanceColor3; }
-        else if (aFaceIndex < 4.5) {vColor = aInstanceColor4; }
-        else {vColor = aInstanceColor5; }
+// Select the face color based on the face index
+if (aFaceIndex < 0.5) {vColor = aInstanceColor0; }
+else if (aFaceIndex < 1.5) {vColor = aInstanceColor1; }
+else if (aFaceIndex < 2.5) {vColor = aInstanceColor2; }
+else if (aFaceIndex < 3.5) {vColor = aInstanceColor3; }
+    else if (aFaceIndex < 4.5) {vColor = aInstanceColor4; }
+    else {vColor = aInstanceColor5; }
 }
 `;
 
@@ -43,7 +43,7 @@ in vec3 vColor; // Use 'in' instead of 'varying'
 out vec4 fragColor; // Define output color variable
 
 void main() {
-        fragColor = vec4(vColor, 1.0); // Assign to output variable
+    fragColor = vec4(vColor, 1.0); // Assign to output variable
 }
 `;
 
@@ -81,7 +81,13 @@ let pitch = 0;
 let keys = {};
 canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
 canvas.onclick = () => canvas.requestPointerLock();
-
+function UpdateCompass() {
+    const rotationDegrees = yaw + 90;
+    // Apply the rotation to the needle div
+    if (compassNeedle) { // Ensure the element exists
+        compassNeedle.style.transform = `rotate(${rotationDegrees}deg)`;
+    }
+}
 document.addEventListener("mousemove", (e) => {
     if (document.pointerLockElement !== canvas) return;
     const sensitivity = 0.1;
@@ -98,6 +104,8 @@ document.addEventListener("mousemove", (e) => {
         Math.sin(radYaw) * Math.cos(radPitch)
     ];
     cameraFront = normalize(front);
+    UpdateCompass();
+
 });
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
@@ -141,9 +149,9 @@ function Elevation(x, z) {
     const falloffRadius = 5000;
 
     // if (distToOrigin < falloffRadius) {
-    //     const fallOffAmount = distToOrigin / falloffRadius;
-    //     // Lerp towards 500 metres around spawn
-    //     height = height * fallOffAmount + 500 * (1 - fallOffAmount);
+    //  const fallOffAmount = distToOrigin / falloffRadius;
+    //  // Lerp towards 500 metres around spawn
+    //  height = height * fallOffAmount + 500 * (1 - fallOffAmount);
     // }
     return height;
 }
@@ -489,7 +497,7 @@ for (let chunkX = -nChunks; chunkX < nChunks; chunkX++) {
     }
 }
 
-// -> 
+// ->
 
 const regenerateChunkSize = 64;
 
@@ -657,10 +665,10 @@ function generateTopographicMap() {
             const colorVal = baseColor.map((c, i) => c * (1 - normalizedElevation) + topColor[i] * normalizedElevation);
 
             const index = (py * mapWidth + px) * 4;
-            data[index] = colorVal[0];     // R
+            data[index] = colorVal[0];  // R
             data[index + 1] = colorVal[1]; // G
             data[index + 2] = colorVal[2]; // B
-            data[index + 3] = 255;      // A (fully opaque)
+            data[index + 3] = 255;   // A (fully opaque)
         }
     }
 
@@ -670,6 +678,9 @@ function generateTopographicMap() {
 
 generateTopographicMap(); // Generate the map once on load
 // --- End Topographic Map Generation ---
+
+const compassNeedle = document.getElementById('compassNeedle');
+
 
 // --- Initial World Generation ---
 regenerateWorldAndUploadData();
@@ -707,10 +718,10 @@ function draw(now = 0) {
 
     if (numInstances > 0) { // Only draw if there are instances
         gl.drawArraysInstanced(
-            gl.TRIANGLES,          // primitive type
-            0,                     // offset
-            CUBE_VERTEX_COUNT,     // number of vertices per instance
-            numInstances           // number of instances
+            gl.TRIANGLES,     // primitive type
+            0,          // offset
+            CUBE_VERTEX_COUNT,  // number of vertices per instance
+            numInstances     // number of instances
         );
     }
 

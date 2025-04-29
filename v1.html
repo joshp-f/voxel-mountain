@@ -1,29 +1,160 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>Voxel World</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-    #mapCanvas {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        width: 300px;
-        height: 300px;
-        border: 1px solid black;
-        pointer-events: none; /* Prevent map from blocking game controls */
+    body {
+      margin: 0;
+      overflow: hidden;
     }
+
+    canvas {
+      display: block;
+    }
+
+    /* --- Compass Styles --- */
+    #compassContainer {
+      position: absolute;
+      bottom: 320px;
+      /* Position above the map */
+      right: 10px;
+      width: 100px;
+      /* Size of the compass */
+      height: 100px;
+      border: 1px solid black;
+      background-color: rgba(255, 255, 255, 0.7);
+      /* Semi-transparent white background */
+      border-radius: 50%;
+      /* Make it circular */
+      overflow: hidden;
+      /* Hide parts of the needle outside the circle */
+      pointer-events: none;
+      /* Prevent interaction */
+      box-sizing: border-box;
+      /* Include border in size */
+    }
+
+    #compassNeedle {
+      position: absolute;
+      /* Center the needle's rotation point */
+      top: 10px;
+      /* (Container height 100 - Needle total length 80) / 2 */
+      left: 10px;
+      /* (Container width 100 - Needle total length 80) / 2 */
+      width: 80px;
+      /* Corresponds to needleLength * 2 */
+      height: 80px;
+      /* Corresponds to needleLength * 2 */
+      /* background-color: rgba(0, 0, 255, 0.2); /* Optional: for debugging position */
+      transform-origin: center center;
+      /* Rotate around the center */
+      transition: transform 0.1s linear;
+      /* Smooth rotation */
+    }
+
+    #compassNeedleNorth,
+    #compassNeedleSouth {
+      width: 0;
+      height: 0;
+      position: absolute;
+      left: 35px;
+      /* (Needle container width 80 - Triangle base 10) / 2 */
+    }
+
+    #compassNeedleNorth {
+      /* Creates the top (North) triangle */
+      border-left: 5px solid transparent;
+      /* needleWidth / 2 */
+      border-right: 5px solid transparent;
+      /* needleWidth / 2 */
+      border-bottom: 40px solid red;
+      /* needleLength */
+      top: 0;
+    }
+
+    #compassNeedleSouth {
+      /* Creates the bottom (South) triangle */
+      border-left: 5px solid transparent;
+      /* needleWidth / 2 */
+      border-right: 5px solid transparent;
+      /* needleWidth / 2 */
+      border-top: 40px solid white;
+      /* needleLength */
+      bottom: 0;
+    }
+
+    /* Optional: Static N, E, S, W markers */
+    .compassMarker {
+      position: absolute;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      color: black;
+      font-weight: bold;
+    }
+
+    #markerN {
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    #markerS {
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    #markerE {
+      top: 50%;
+      right: 5px;
+      transform: translateY(-50%);
+    }
+
+    #markerW {
+      top: 50%;
+      left: 5px;
+      transform: translateY(-50%);
+    }
+
+    /* --- End Compass Styles --- */
+
+
+    #mapCanvas {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 300px;
+      height: 300px;
+      border: 1px solid black;
+      pointer-events: none;
+      /* Prevent map from blocking game controls */
+    }
+
     /* Optional: Style the main canvas if not already done */
     #glcanvas {
-        display: block; /* Remove potential extra space below canvas */
+      display: block;
+      /* Remove potential extra space below canvas */
     }
   </style>
 </head>
+
 <body>
   <canvas id="glcanvas"></canvas>
   <canvas id="mapCanvas"></canvas>
+
+  <div id="compassContainer">
+    <div id="compassNeedle">
+      <div id="compassNeedleNorth"></div>
+      <div id="compassNeedleSouth"></div>
+    </div>
+    <div class="compassMarker" id="markerN">N</div>
+    <div class="compassMarker" id="markerS">S</div>
+    <div class="compassMarker" id="markerE">E</div>
+    <div class="compassMarker" id="markerW">W</div>
+  </div>
   <script src='perlin.js'></script>
   <script src="v1.js"></script>
 </body>
+
 </html>
