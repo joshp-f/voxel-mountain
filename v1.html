@@ -5,10 +5,24 @@
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
+    #mapCanvas {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        width: 300px;
+        height: 300px;
+        border: 1px solid black;
+        pointer-events: none; /* Prevent map from blocking game controls */
+    }
+    /* Optional: Style the main canvas if not already done */
+    #glcanvas {
+        display: block; /* Remove potential extra space below canvas */
+    }
   </style>
 </head>
 <body>
   <canvas id="glcanvas"></canvas>
+  <canvas id="mapCanvas"></canvas>
   <script src='perlin.js'></script>
   <script src="v1.js"></script>
 </body>

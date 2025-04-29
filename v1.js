@@ -603,6 +603,73 @@ const aspect = canvas.width / canvas.height;
 const projMatrix = perspective(Math.PI / 3, aspect, 1, maxDist * 1.5);
 gl.uniformMatrix4fv(uProjection, false, projMatrix);
 
+// --- Topographic Map Generation ---
+const mapCanvas = document.getElementById("mapCanvas");
+const mapCtx = mapCanvas.getContext("2d");
+const mapWidth = 300;
+const mapHeight = 300;
+mapCanvas.width = mapWidth;
+mapCanvas.height = mapHeight;
+const mapWorldSize = 20000; // 5000x5000 meters centered at 0,0
+
+function generateTopographicMap() {
+    console.time("Map Generation");
+    const imageData = mapCtx.createImageData(mapWidth, mapHeight);
+    const data = imageData.data;
+
+    // Find min/max elevation within map bounds for better color scaling
+    let minElev = Infinity;
+    let maxElev = -Infinity;
+    const step = mapWorldSize / 100; // Sample 100x100 points to estimate range
+    for (let wx = -mapWorldSize / 2; wx <= mapWorldSize / 2; wx += step) {
+        for (let wz = -mapWorldSize / 2; wz <= mapWorldSize / 2; wz += step) {
+            const elev = Elevation(wx, wz);
+            if (elev < minElev) minElev = elev;
+            if (elev > maxElev) maxElev = elev;
+        }
+    }
+    // Add a little buffer in case sampling missed extremes near pixels
+    minElev = Math.max(0, minElev - 50); // Ensure min is not below 0
+    maxElev += 50;
+    const elevRange = maxElev - minElev;
+
+    console.log(`Map Elevation Range: ${minElev.toFixed(2)} to ${maxElev.toFixed(2)}`);
+
+
+    for (let py = 0; py < mapHeight; py++) {
+        for (let px = 0; px < mapWidth; px++) {
+            // Map pixel coordinates (0 to mapWidth-1) to world coordinates (-mapWorldSize/2 to +mapWorldSize/2)
+            const worldX = (px / (mapWidth - 1) - 0.5) * mapWorldSize;
+            const worldZ = (py / (mapHeight - 1) - 0.5) * mapWorldSize; // Map increasing py to increasing Z
+
+            const elevation = Elevation(worldX, worldZ);
+
+            // Normalize elevation to 0-1 range based on calculated min/max
+            let normalizedElevation = 0;
+            if (elevRange > 0) {
+                normalizedElevation = (elevation - minElev) / elevRange;
+            }
+            normalizedElevation = Math.max(0, Math.min(1, normalizedElevation)); // Clamp to [0, 1]
+
+            const baseColor = [0, 255, 0];
+            const topColor = [100, 100, 100];
+            // Simple grayscale color based on elevation
+            const colorVal = baseColor.map((c, i) => c * (1 - normalizedElevation) + topColor[i] * normalizedElevation);
+
+            const index = (py * mapWidth + px) * 4;
+            data[index] = colorVal[0];     // R
+            data[index + 1] = colorVal[1]; // G
+            data[index + 2] = colorVal[2]; // B
+            data[index + 3] = 255;      // A (fully opaque)
+        }
+    }
+
+    mapCtx.putImageData(imageData, 0, 0);
+    console.timeEnd("Map Generation");
+}
+
+generateTopographicMap(); // Generate the map once on load
+// --- End Topographic Map Generation ---
 
 // --- Initial World Generation ---
 regenerateWorldAndUploadData();
