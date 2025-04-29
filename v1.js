@@ -49,7 +49,27 @@ void main() {
 
 // --- Camera and Controls ---
 
-let cameraPos = [0, Elevation(0, 5) + 10, 5];
+function GetStartPos() {
+    let lowest = 10000;
+    let bestX = 0;
+    let bestZ = 0;
+    const spawnRange = 1000;
+    const testGap = spawnRange / 20
+    for (let x = -spawnRange; x < spawnRange; x += testGap) {
+        for (let z = -spawnRange; z < spawnRange; z += testGap) {
+            const elevation = Elevation(x, z);
+            if (elevation < lowest) {
+                lowest = elevation;
+                bestX = x;
+                bestZ = z;
+            }
+        }
+    }
+    return [bestX, lowest + 20, bestZ];
+}
+// let cameraPos = [0, Elevation(0, 5) + 10, 5];
+let cameraPos = GetStartPos();
+console.log(cameraPos);
 let currentChunkX = 0;
 let currentChunkZ = 0;
 let firstLoadDone = false;
@@ -85,7 +105,7 @@ document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 let isSprinting = false;
 function updateCamera(deltaTime) {
     isSprinting = keys["shift"];
-    const speed = 100 * (isSprinting ? 2 : 1) * deltaTime;
+    const speed = 10 * (isSprinting ? 3 : 1) * deltaTime;
     const forward = normalize([...cameraFront]);
     const worldUp = [0, 1, 0];
     const right = normalize(cross(forward, worldUp));
@@ -107,8 +127,8 @@ function scale(v, s) { return v.map(x => x * s); }
 function dot(a, b) { return a.reduce((sum, v, i) => sum + v * b[i], 0); }
 function Elevation(x, z) {
     let height = 0;
-    const base = 64;
-    for (let i = 0; i < 6; i++) {
+    const base = 16;
+    for (let i = 0; i < 8; i++) {
         const amp = base * (2 ** i);
         const scale = 1 / (amp * 8);
         let levelHeight = noise.simplex2(x * scale + amp, z * scale + amp);
@@ -265,7 +285,7 @@ const faceMap = {
 
 function pickFaces(elevation, steepness) {
     let face = 'green';
-    if (steepness + (elevation / 4000) < 1) face = 'pine';
+    // if (steepness + (elevation / 4000) < 1) face = 'pine';
     // Dont use harsh cut offs, use gradients, looks nicer
     if (steepness + (elevation / 8000) > 1) {
         face = 'mountain';
@@ -273,7 +293,7 @@ function pickFaces(elevation, steepness) {
     if ((steepness - elevation / 1000) < -1) {
         face = 'snow';
     }
-    if (elevation > 400 && elevation < 405) face = 'path';
+    // if (elevation > 400 && elevation < 405) face = 'path';
     return face;
 }
 
@@ -431,7 +451,7 @@ function _CreateChunk(chunkX, chunkZ, chunkLevel) {
                 faceColors,
                 scale: chunkLevel
             });
-            EntityVoxels(face, realX, yPos, realZ, chunkLevel);
+            // EntityVoxels(face, realX, yPos, realZ, chunkLevel);
         }
     }
 }
@@ -599,7 +619,7 @@ function draw(now = 0) {
     regenerateWorldAndUploadData(); // Regenerate and re-upload everything
 
 
-    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 3;
+    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 2.5;
     if (cameraPos[1] < groundElevation) {
         cameraPos[1] = groundElevation;
         yVel = 0;
