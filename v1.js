@@ -24,7 +24,7 @@ out vec3 vColor; // Use 'out' instead of 'varying'
 
 void main() {
 vec3 scaledPosition = aPosition * aInstanceScale;
- gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
+  gl_Position = uProjection * uView * vec4(scaledPosition + aInstancePosition, 1.0);
 
 // Select the face color based on the face index
 if (aFaceIndex < 0.5) {vColor = aInstanceColor0; }
@@ -46,6 +46,23 @@ void main() {
     fragColor = vec4(vColor, 1.0); // Assign to output variable
 }
 `;
+
+// --- Marker Data ---
+const markers = [
+    { x: 70, z: 70, found: false },
+    { x: 1000, z: 1000, found: false },
+    { x: -1500, z: 500, found: false },
+    { x: 2000, z: -2000, found: false },
+    { x: -500, z: -2500, found: false },
+    { x: 3000, z: 0, found: false },
+    { x: 0, z: 3000, found: false },
+    { x: -3500, z: -3500, found: false },
+    { x: 4000, z: 2000, found: false },
+    { x: -2000, z: 4500, found: false },
+    { x: 2500, z: -4000, found: false },
+];
+const proximityThreshold = 30; // World units to trigger 'found' status
+let mapNeedsUpdate = false; // Flag to trigger map redraw
 
 // --- Camera and Controls ---
 
@@ -122,7 +139,12 @@ function updateCamera(deltaTime) {
     if (keys["s"]) cameraPos = add(cameraPos, scale(forward, -speed));
     if (keys["a"]) cameraPos = add(cameraPos, scale(right, -speed));
     if (keys["d"]) cameraPos = add(cameraPos, scale(right, speed));
-    if (keys[" "]) cameraPos = add(cameraPos, scale([0, 1, 0], 30 * deltaTime)); // jump - strength must be against gravity
+    if (keys[" "]) {
+        // Broken, tbh dont care
+        const elevation = GetGroundElevation();
+        console.log(cameraPos[1], elevation)
+        if (cameraPos[1] < elevation) yVel = 10;
+    }
     // if (keys["shift"]) cameraPos = add(cameraPos, scale([0, 1, 0], -speed)); // Move along world Y
 }
 // --- End Camera ---
@@ -196,26 +218,26 @@ if (!program) { throw new Error("Failed to create shader program"); }
 gl.useProgram(program);
 
 // --- Cube Vertex Data ---
-const by = -3.5;
+// Adjusted Y values to center the cube vertically around Y=0 (Height is 4)
 const cubeVertices = new Float32Array([
     // Front face (+Z) (Index 0)
-    -0.5, by, 0.5, 0.5, by, 0.5, 0.5, 0.5, 0.5,
-    -0.5, by, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5,
+    -0.5, -2, 0.5, 0.5, -2, 0.5, 0.5, 2, 0.5,
+    -0.5, -2, 0.5, 0.5, 2, 0.5, -0.5, 2, 0.5,
     // Back face (-Z) (Index 1)
-    -0.5, by, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5,
-    -0.5, by, -0.5, 0.5, 0.5, -0.5, 0.5, by, -0.5,
+    -0.5, -2, -0.5, -0.5, 2, -0.5, 0.5, 2, -0.5,
+    -0.5, -2, -0.5, 0.5, 2, -0.5, 0.5, -2, -0.5,
     // Top face (+Y) (Index 2)
-    -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
-    -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5,
+    -0.5, 2, -0.5, -0.5, 2, 0.5, 0.5, 2, 0.5,
+    -0.5, 2, -0.5, 0.5, 2, 0.5, 0.5, 2, -0.5,
     // Bottom face (-Y) (Index 3)
-    -0.5, by, -0.5, 0.5, by, -0.5, 0.5, by, 0.5,
-    -0.5, by, -0.5, 0.5, by, 0.5, -0.5, by, 0.5,
+    -0.5, -2, -0.5, 0.5, -2, -0.5, 0.5, -2, 0.5,
+    -0.5, -2, -0.5, 0.5, -2, 0.5, -0.5, -2, 0.5,
     // Right face (+X) (Index 4)
-    0.5, by, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5,
-    0.5, by, -0.5, 0.5, 0.5, 0.5, 0.5, by, 0.5,
+    0.5, -2, -0.5, 0.5, 2, -0.5, 0.5, 2, 0.5,
+    0.5, -2, -0.5, 0.5, 2, 0.5, 0.5, -2, 0.5,
     // Left face (-X) (Index 5)
-    -0.5, by, -0.5, -0.5, by, 0.5, -0.5, 0.5, 0.5,
-    -0.5, by, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
+    -0.5, -2, -0.5, -0.5, -2, 0.5, -0.5, 2, 0.5,
+    -0.5, -2, -0.5, -0.5, 2, 0.5, -0.5, 2, -0.5,
 ]);
 const CUBE_VERTEX_COUNT = 36;
 
@@ -282,6 +304,9 @@ const basePath = [0.545, 0.353, 0.169];
 const pathGap = 0.04;
 const pathFaces = MakeShadedColorFaces(basePath, pathGap);
 
+const pillarColor = [0.5, 0.0, 0.5]; // Purple
+const pillarFaces = MakeShadedColorFaces(pillarColor, 0.05);
+
 const faceMap = {
     green: greenFaces,
     mountain: mountainGrassFaces,
@@ -335,8 +360,13 @@ function getFaceColors(x, z, face, chunkLevel) {
 
 function cubeDist(x, z) { return Math.max(Math.abs(x), Math.abs(z)); }
 const EuclideanDist = (x, y, z) => {
-    return Math.sqrt(x ** 2 + y ** 2 + (z != undefined ? (z ** 2) : 0));
+    // Optimized 2D distance if z is undefined or 0
+    if (z === undefined || z === 0) {
+        return Math.sqrt(x * x + y * y);
+    }
+    return Math.sqrt(x * x + y * y + z * z);
 }
+
 
 // --- Voxel Generation ---
 class ChunkManager {
@@ -453,7 +483,7 @@ function _CreateChunk(chunkX, chunkZ, chunkLevel) {
 
             chunkManager.PushVoxel({
                 x: realX,
-                y: yPos,
+                y: yPos, // Center the terrain block
                 z: realZ,
                 faceColors,
                 scale: chunkLevel
@@ -523,6 +553,28 @@ function regenerateWorldAndUploadData() {
     console.time("Voxel List");
     let voxels = Object.values(chunkManager.voxelMap);
     console.timeEnd("Voxel List");
+
+    // --- Add Pillar Voxels ---
+    const pillarSegmentScale = 5; // Scale of each segment cube
+    const segmentHeight = 4 * pillarSegmentScale; // Actual height of a scaled segment (base cube height is 4)
+    const pillarTotalHeight = 100;
+    const numPillarSegments = Math.ceil(pillarTotalHeight / segmentHeight);
+
+    markers.forEach(marker => {
+        const baseElevation = Elevation(marker.x, marker.z);
+        for (let i = 0; i < numPillarSegments; i++) {
+            const segmentCenterY = baseElevation + 1 + (i * segmentHeight) + (segmentHeight / 2);
+            voxels.push({
+                x: marker.x,
+                y: segmentCenterY, // Instance position is the center
+                z: marker.z,
+                faceColors: marker.found ? greenFaces : pillarFaces, // Use the defined purple faces
+                scale: pillarSegmentScale
+            });
+        }
+    });
+    // --- End Pillar Voxels ---
+
 
     numInstances = voxels.length;
     console.log("Regenerated Voxels:", numInstances);
@@ -617,43 +669,81 @@ const mapWidth = 300;
 const mapHeight = 300;
 mapCanvas.width = mapWidth;
 mapCanvas.height = mapHeight;
-const mapWorldSize = 20000; // 5000x5000 meters centered at 0,0
+const mapWorldSize = 10000; // How much world space the map covers
 
-function generateTopographicMap() {
+function updateMap() { // Renamed from generateTopographicMap
     console.time("Map Generation");
     const imageData = mapCtx.createImageData(mapWidth, mapHeight);
     const data = imageData.data;
+
+    // Draw Terrain Background
     for (let py = 0; py < mapHeight; py++) {
         for (let px = 0; px < mapWidth; px++) {
-            // Map pixel coordinates (0 to mapWidth-1) to world coordinates (-mapWorldSize/2 to +mapWorldSize/2)
             const worldX = (px / (mapWidth - 1) - 0.5) * mapWorldSize;
             const worldZ = (py / (mapHeight - 1) - 0.5) * mapWorldSize; // Map increasing py to increasing Z
             const elevation = Elevation(worldX, worldZ);
             const steepness = Steepness(worldX, worldZ);
             const faceName = pickFaces(elevation, steepness);
             const face = faceMap[faceName];
-            let color = face[0];
-            color = color.map(c => c * 255);
+            let color = face[0]; // Use one of the face colors for the map
+            color = color.map(c => Math.max(0, Math.min(255, c * 255))); // Clamp and scale
             const index = (py * mapWidth + px) * 4;
-            data[index] = color[0];  // R
+            data[index] = color[0];     // R
             data[index + 1] = color[1]; // G
             data[index + 2] = color[2]; // B
-            data[index + 3] = 255;   // A (fully opaque)
+            data[index + 3] = 255;      // A (fully opaque)
         }
     }
     mapCtx.putImageData(imageData, 0, 0);
+
+    // Draw Markers on top
+    const markerSize = 8; // Size of marker rect on map
+    markers.forEach(marker => {
+        // Convert marker world coordinates to map coordinates
+        const mapX = ((marker.x / mapWorldSize) + 0.5) * mapWidth;
+        const mapZ = ((marker.z / mapWorldSize) + 0.5) * mapHeight; // World Z maps to Map Y
+
+        // Set color based on 'found' status
+        mapCtx.fillStyle = marker.found ? 'lime' : 'purple'; // Bright green if found, red if not
+
+        // Draw marker (adjust coords to center the rect)
+        mapCtx.fillRect(mapX - markerSize / 2, mapZ - markerSize / 2, markerSize, markerSize);
+    });
+
     console.timeEnd("Map Generation");
 }
+function UpdateMarkers() {
+    // Check marker proximity
+    mapNeedsUpdate = false; // Reset flag each frame
+    markers.forEach(marker => {
+        if (!marker.found) {
+            const distToMarker = EuclideanDist(cameraPos[0] - marker.x, cameraPos[2] - marker.z);
+            if (distToMarker < proximityThreshold) {
+                marker.found = true;
+                mapNeedsUpdate = true; // Set flag to redraw map
+                console.log("Found marker at:", marker.x, marker.z); // Optional feedback
+            }
+        }
+    });
 
-generateTopographicMap(); // Generate the map once on load
+    // Update map if needed
+    if (mapNeedsUpdate) {
+        updateMap();
+    }
+}
+
 // --- End Topographic Map Generation ---
 
 const compassNeedle = document.getElementById('compassNeedle');
 
 
-// --- Initial World Generation ---
+// --- Initial World and Map Generation ---
 regenerateWorldAndUploadData();
+updateMap(); // Initial map draw including markers
 
+function GetGroundElevation() {
+    return Elevation(cameraPos[0], cameraPos[2]) + 3.5; // Adjusted player height offset
+}
 // --- Draw Loop ---
 let lastTime = 0;
 function draw(now = 0) {
@@ -661,18 +751,19 @@ function draw(now = 0) {
     lastTime = now;
 
     updateCamera(deltaTime);
+    UpdateMarkers();
 
 
-    regenerateWorldAndUploadData(); // Regenerate and re-upload everything
+    regenerateWorldAndUploadData(); // Regenerate world chunks if camera moved
 
 
-    const groundElevation = Elevation(cameraPos[0], cameraPos[2]) + 2.5;
+    const groundElevation = GetGroundElevation();
     if (cameraPos[1] < groundElevation) {
         cameraPos[1] = groundElevation;
-        yVel = 0;
+        yVel = Math.min(yVel, 0);
     } else {
-        yVel += deltaTime
-        cameraPos[1] -= yVel;
+        yVel += deltaTime * 9.81; // Apply gravity
+        cameraPos[1] -= yVel * deltaTime; // Apply velocity
     }
     const center = add(cameraPos, cameraFront);
     const viewMatrix = lookAt(cameraPos, center, cameraUp);
@@ -688,9 +779,9 @@ function draw(now = 0) {
     if (numInstances > 0) { // Only draw if there are instances
         gl.drawArraysInstanced(
             gl.TRIANGLES,     // primitive type
-            0,          // offset
-            CUBE_VERTEX_COUNT,  // number of vertices per instance
-            numInstances     // number of instances
+            0,                // offset
+            CUBE_VERTEX_COUNT, // number of vertices per instance
+            numInstances      // number of instances
         );
     }
 
